@@ -161,9 +161,30 @@ BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ETHEREUM_RPC_URL=https://eth.llamarpc.com
 ```
 
-## 🐳 Docker Deployment
+## 🚀 Deployment
 
-### Using Docker Compose
+### Option 1: Vercel + Railway (Recommended for Production)
+
+**Dashboard on Vercel:**
+```bash
+# Deploy from the apps/dashboard directory
+vercel --prod
+```
+
+**API Server on Railway:**
+1. Connect your GitHub repo to Railway
+2. Set the root directory to the repo root
+3. Railway will detect the Dockerfile.server
+4. Add a volume mounted at `/data` for the database
+5. Set environment variables (see below)
+
+**DNS Setup:**
+- `openfacilitator.io` → Vercel
+- `api.openfacilitator.io` → Railway
+- `*.openfacilitator.io` → Railway (wildcard for tenant subdomains)
+- `custom.openfacilitator.io` → Railway (CNAME target)
+
+### Option 2: Docker Compose (Self-Hosted)
 
 ```bash
 # Start all services
@@ -176,7 +197,7 @@ docker compose logs -f
 docker compose down
 ```
 
-### Using Docker directly
+### Option 3: Docker Directly
 
 ```bash
 # Build server image
@@ -187,6 +208,23 @@ docker run -d \
   -p 3001:3001 \
   -v openfacilitator-data:/data \
   openfacilitator-server
+```
+
+### Environment Variables
+
+**Server (.env):**
+```env
+NODE_ENV=production
+PORT=3001
+HOST=0.0.0.0
+DATABASE_PATH=/data/openfacilitator.db
+BETTER_AUTH_SECRET=your-secret-key-min-32-chars
+DASHBOARD_URL=https://dashboard.openfacilitator.io
+```
+
+**Dashboard:**
+```env
+NEXT_PUBLIC_API_URL=https://api.openfacilitator.io
 ```
 
 ## 🖥️ CLI Usage

@@ -8,6 +8,7 @@ import type { FacilitatorRecord } from './types.js';
 export function createFacilitator(data: {
   name: string;
   subdomain: string;
+  custom_domain?: string;
   owner_address: string;
   supported_chains: string;
   supported_tokens: string;
@@ -18,14 +19,15 @@ export function createFacilitator(data: {
 
   try {
     const stmt = db.prepare(`
-      INSERT INTO facilitators (id, name, subdomain, owner_address, supported_chains, supported_tokens, encrypted_private_key)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO facilitators (id, name, subdomain, custom_domain, owner_address, supported_chains, supported_tokens, encrypted_private_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       id,
       data.name,
       data.subdomain.toLowerCase(),
+      data.custom_domain?.toLowerCase() || null,
       data.owner_address.toLowerCase(),
       data.supported_chains,
       data.supported_tokens,

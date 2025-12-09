@@ -7,6 +7,34 @@ import { authRouter } from './routes/auth.js';
 import { resolveFacilitator } from './middleware/tenant.js';
 
 /**
+ * Get allowed CORS origins from environment or defaults
+ */
+function getCorsOrigins(): string[] {
+  const dashboardUrl = process.env.DASHBOARD_URL;
+  
+  // Default origins for development
+  const defaultOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'http://localhost:3003',
+  ];
+
+  // Production origins
+  const productionOrigins = [
+    'https://openfacilitator.io',
+    'https://www.openfacilitator.io',
+    'https://dashboard.openfacilitator.io',
+  ];
+
+  // Add custom dashboard URL if set
+  if (dashboardUrl) {
+    return [...defaultOrigins, ...productionOrigins, dashboardUrl];
+  }
+
+  return [...defaultOrigins, ...productionOrigins];
+}
+
+/**
  * Create the Express server with all middleware and routes
  */
 export function createServer(): Express {
@@ -15,17 +43,12 @@ export function createServer(): Express {
   // Security middleware
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Disable for development
+      contentSecurityPolicy: process.env.NODE_ENV === 'production',
     })
   );
   app.use(
     cors({
-      origin: [
-        'http://localhost:3000',
-        'http://localhost:3002',
-        'http://localhost:3003',
-        'https://openfacilitator.io',
-      ],
+      origin: getCorsOrigins(),
       credentials: true,
     })
   );

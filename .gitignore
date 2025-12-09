@@ -14,7 +14,10 @@ out/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
+data/
 
 # IDE
 .idea/

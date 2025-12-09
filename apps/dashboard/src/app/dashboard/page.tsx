@@ -38,9 +38,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, isLoading: authLoading, isAuthenticated, signOut } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [domainType, setDomainType] = useState<'subdomain' | 'custom'>('subdomain');
   const [newFacilitator, setNewFacilitator] = useState({
     name: '',
     subdomain: '',
+    customDomain: '',
   });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -59,27 +61,15 @@ export default function DashboardPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; subdomain: string }) =>
+    mutationFn: (data: { name: string; subdomain: string; customDomain?: string }) =>
       api.createFacilitator(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['facilitators'] });
       setIsCreateOpen(false);
-      setNewFacilitator({ name: '', subdomain: '' });
+      setNewFacilitator({ name: '', subdomain: '', customDomain: '' });
+      setDomainType('subdomain');
     },
   });
-
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null; // Will redirect
-  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteFacilitator(id),
@@ -93,6 +83,19 @@ export default function DashboardPage() {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,11 +178,11 @@ export default function DashboardPage() {
                 New Facilitator
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Create Facilitator</DialogTitle>
                 <DialogDescription>
-                  Set up a new x402 payment facilitator with your own subdomain.
+                  Set up a new x402 payment facilitator.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -194,34 +197,112 @@ export default function DashboardPage() {
                     }
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="subdomain">Subdomain</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="subdomain"
-                      placeholder="my-facilitator"
-                      value={newFacilitator.subdomain}
-                      onChange={(e) =>
-                        setNewFacilitator((prev) => ({
-                          ...prev,
-                          subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
-                        }))
-                      }
-                    />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      .openfacilitator.io
-                    </span>
+
+                {/* Domain Type Toggle */}
+                <div className="space-y-3">
+                  <Label>Domain Type</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setDomainType('subdomain')}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        domainType === 'subdomain'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-muted-foreground/50'
+                      }`}
+                    >
+                      <div className="font-medium text-sm">Subdomain</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        yourname.openfacilitator.io
+                      </div>
+                      <div className="text-xs text-primary mt-2 font-medium">Starter — $10/mo</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDomainType('custom')}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        domainType === 'custom'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-muted-foreground/50'
+                      }`}
+                    >
+                      <div className="font-medium text-sm">Custom Domain</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        facilitator.yourdomain.com
+                      </div>
+                      <div className="text-xs text-primary mt-2 font-medium">Pro — $20/mo</div>
+                    </button>
                   </div>
                 </div>
+
+                {domainType === 'subdomain' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="subdomain">Subdomain</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="subdomain"
+                        placeholder="my-facilitator"
+                        value={newFacilitator.subdomain}
+                        onChange={(e) =>
+                          setNewFacilitator((prev) => ({
+                            ...prev,
+                            subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                          }))
+                        }
+                      />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        .openfacilitator.io
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="customDomain">Your Domain</Label>
+                      <Input
+                        id="customDomain"
+                        placeholder="facilitator.yourdomain.com"
+                        value={newFacilitator.customDomain}
+                        onChange={(e) =>
+                          setNewFacilitator((prev) => ({
+                            ...prev,
+                            customDomain: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''),
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-4 text-sm">
+                      <div className="font-medium mb-2">DNS Setup Required</div>
+                      <div className="text-muted-foreground space-y-1">
+                        <p>Add a CNAME record pointing to:</p>
+                        <code className="block bg-background px-2 py-1 rounded text-xs font-mono mt-1">
+                          custom.openfacilitator.io
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => createMutation.mutate(newFacilitator)}
+                  onClick={() => {
+                    const data = {
+                      name: newFacilitator.name,
+                      subdomain: domainType === 'subdomain' 
+                        ? newFacilitator.subdomain 
+                        : newFacilitator.customDomain.replace(/\./g, '-'),
+                      customDomain: domainType === 'custom' ? newFacilitator.customDomain : undefined,
+                    };
+                    createMutation.mutate(data);
+                  }}
                   disabled={
-                    !newFacilitator.name || !newFacilitator.subdomain || createMutation.isPending
+                    !newFacilitator.name || 
+                    (domainType === 'subdomain' && !newFacilitator.subdomain) ||
+                    (domainType === 'custom' && !newFacilitator.customDomain) ||
+                    createMutation.isPending
                   }
                 >
                   {createMutation.isPending ? 'Creating...' : 'Create'}

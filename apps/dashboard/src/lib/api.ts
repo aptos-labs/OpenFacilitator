@@ -37,6 +37,7 @@ export interface Transaction {
 export interface CreateFacilitatorRequest {
   name: string;
   subdomain: string;
+  customDomain?: string;
   ownerAddress?: string;
   supportedChains?: number[];
   supportedTokens?: TokenConfig[];

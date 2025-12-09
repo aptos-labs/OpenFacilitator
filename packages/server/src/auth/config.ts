@@ -1,0 +1,57 @@
+import { betterAuth } from 'better-auth';
+import Database from 'better-sqlite3';
+import path from 'path';
+import fs from 'fs';
+
+const dbPath = process.env.DATABASE_PATH || './data/openfacilitator.db';
+
+// Ensure directory exists
+const dir = path.dirname(dbPath);
+if (dir !== '.') {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+const db = new Database(dbPath);
+
+// Get trusted origins from environment and defaults
+function getTrustedOrigins(): string[] {
+  const dashboardUrl = process.env.DASHBOARD_URL;
+  
+  const origins = [
+    // Development
+    'http://localhost:3000',
+    'http://localhost:3002',
+    'http://localhost:3003',
+    // Production
+    'https://openfacilitator.io',
+    'https://www.openfacilitator.io',
+    'https://dashboard.openfacilitator.io',
+  ];
+
+  if (dashboardUrl && !origins.includes(dashboardUrl)) {
+    origins.push(dashboardUrl);
+  }
+
+  return origins;
+}
+
+export const auth = betterAuth({
+  database: db,
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: false,
+  },
+  session: {
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24,
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5,
+    },
+  },
+  trustedOrigins: getTrustedOrigins(),
+});
+
+export default auth;

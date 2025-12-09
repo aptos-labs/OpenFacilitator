@@ -24,7 +24,8 @@ const createFacilitatorSchema = z.object({
     .min(3)
     .max(63)
     .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Invalid subdomain format'),
-  ownerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
+  customDomain: z.string().max(255).optional(),
+  ownerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address').optional(),
   supportedChains: z.array(z.number()).optional(),
   supportedTokens: z
     .array(
@@ -81,7 +82,7 @@ router.post('/facilitators', requireAuth, async (req: Request, res: Response) =>
       return;
     }
 
-    const { name, subdomain, supportedChains, supportedTokens } = parsed.data;
+    const { name, subdomain, customDomain, supportedChains, supportedTokens } = parsed.data;
     // Use the authenticated user's ID as owner, or wallet address if provided
     const ownerAddress = parsed.data.ownerAddress || req.user!.id;
 
@@ -92,6 +93,7 @@ router.post('/facilitators', requireAuth, async (req: Request, res: Response) =>
     const facilitator = createFacilitator({
       name,
       subdomain,
+      custom_domain: customDomain,
       owner_address: ownerAddress,
       supported_chains: JSON.stringify(chains),
       supported_tokens: JSON.stringify(tokens),
