@@ -17,11 +17,14 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, mainnet, sepolia } from 'viem/chains';
 
 /**
- * ERC-3009 receiveWithAuthorization ABI
+ * ERC-3009 transferWithAuthorization ABI
+ * Note: We use transferWithAuthorization instead of receiveWithAuthorization
+ * because receiveWithAuthorization requires the caller to be the payee,
+ * but we want the facilitator to be able to call it.
  */
-const RECEIVE_WITH_AUTHORIZATION_ABI = [
+const TRANSFER_WITH_AUTHORIZATION_ABI = [
   {
-    name: 'receiveWithAuthorization',
+    name: 'transferWithAuthorization',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [
@@ -109,10 +112,10 @@ export async function executeERC3009Settlement(
     // Parse signature into v, r, s
     const { v, r, s } = parseSignature(signature);
 
-    // Encode function data
+    // Encode function data - using transferWithAuthorization (can be called by anyone)
     const data = encodeFunctionData({
-      abi: RECEIVE_WITH_AUTHORIZATION_ABI,
-      functionName: 'receiveWithAuthorization',
+      abi: TRANSFER_WITH_AUTHORIZATION_ABI,
+      functionName: 'transferWithAuthorization',
       args: [
         authorization.from,
         authorization.to,

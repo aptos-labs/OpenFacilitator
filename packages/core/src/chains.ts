@@ -2,6 +2,7 @@ import type { ChainConfig } from './types.js';
 
 /**
  * Default supported chains for x402 facilitators
+ * RPC URLs can be overridden via environment variables
  */
 export const defaultChains: Record<string, ChainConfig> = {
   // Base Mainnet
@@ -9,7 +10,7 @@ export const defaultChains: Record<string, ChainConfig> = {
     chainId: 8453,
     name: 'Base',
     network: 'base',
-    rpcUrl: 'https://mainnet.base.org',
+    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
     blockExplorerUrl: 'https://basescan.org',
     isEVM: true,
   },
