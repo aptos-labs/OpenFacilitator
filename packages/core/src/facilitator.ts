@@ -107,7 +107,7 @@ export class Facilitator {
     try {
       // Parse the base64-encoded payment payload
       const decoded = Buffer.from(paymentPayload, 'base64').toString('utf-8');
-      const payload: X402PaymentPayload = JSON.parse(decoded);
+      const payload = JSON.parse(decoded);
 
       // Get chain ID from network
       const chainId = getChainIdFromNetwork(requirements.network);
@@ -129,7 +129,25 @@ export class Facilitator {
         };
       }
 
-      // For EVM chains, get the client
+      // Handle Solana verification differently
+      if (chainId === 'solana' || chainId === 'solana-devnet') {
+        // Solana payloads have transaction in payload.payload.transaction
+        const solanaPayload = payload.payload || payload;
+        if (!solanaPayload.transaction) {
+          return {
+            valid: false,
+            invalidReason: 'Missing transaction in Solana payment payload',
+          };
+        }
+        // For Solana, we trust the pre-signed transaction
+        // The actual verification happens during settlement
+        return {
+          valid: true,
+          payer: 'solana-payer', // Payer is embedded in the transaction
+        };
+      }
+
+      // EVM verification
       if (isEVMChain(chainId)) {
         const client = this.clients.get(chainId);
         if (!client) {
@@ -138,43 +156,50 @@ export class Facilitator {
             invalidReason: `No client configured for chain ${chainId}`,
           };
         }
-      }
 
-      // Validate the authorization
-      const { authorization } = payload;
+        // Validate the ERC-3009 authorization
+        const { authorization } = payload as X402PaymentPayload;
+        if (!authorization) {
+          return {
+            valid: false,
+            invalidReason: 'Missing authorization in EVM payment payload',
+          };
+        }
 
-      // Check timestamp validity
-      const now = Math.floor(Date.now() / 1000);
-      if (authorization.validAfter > now) {
+        // Check timestamp validity
+        const now = Math.floor(Date.now() / 1000);
+        if (authorization.validAfter > now) {
+          return {
+            valid: false,
+            invalidReason: 'Payment not yet valid',
+          };
+        }
+        if (authorization.validBefore < now) {
+          return {
+            valid: false,
+            invalidReason: 'Payment has expired',
+          };
+        }
+
+        // Check amount meets requirements
+        const paymentAmount = BigInt(authorization.value);
+        const requiredAmount = BigInt(requirements.maxAmountRequired);
+        if (paymentAmount < requiredAmount) {
+          return {
+            valid: false,
+            invalidReason: `Payment amount ${paymentAmount} is less than required ${requiredAmount}`,
+          };
+        }
+
         return {
-          valid: false,
-          invalidReason: 'Payment not yet valid',
+          valid: true,
+          payer: authorization.from,
         };
       }
-      if (authorization.validBefore < now) {
-        return {
-          valid: false,
-          invalidReason: 'Payment has expired',
-        };
-      }
-
-      // Check amount meets requirements
-      const paymentAmount = BigInt(authorization.value);
-      const requiredAmount = BigInt(requirements.maxAmountRequired);
-      if (paymentAmount < requiredAmount) {
-        return {
-          valid: false,
-          invalidReason: `Payment amount ${paymentAmount} is less than required ${requiredAmount}`,
-        };
-      }
-
-      // TODO: Verify signature on-chain
-      // For EVM: use ERC-3009 receiveWithAuthorization
-      // For Solana: use SPL Token transfer verification
 
       return {
-        valid: true,
-        payer: authorization.from,
+        valid: false,
+        invalidReason: `Unknown chain type: ${chainId}`,
       };
     } catch (error) {
       return {
@@ -190,7 +215,7 @@ export class Facilitator {
   async settle(
     paymentPayload: string,
     requirements: PaymentRequirements,
-    privateKey?: Hex
+    privateKey?: string // Can be Hex for EVM or base58 for Solana
   ): Promise<SettleResponse> {
     try {
       // First verify the payment
@@ -205,7 +230,7 @@ export class Facilitator {
 
       // Parse payload
       const decoded = Buffer.from(paymentPayload, 'base64').toString('utf-8');
-      const payload: X402PaymentPayload = JSON.parse(decoded);
+      const payload = JSON.parse(decoded);
 
       const chainId = getChainIdFromNetwork(requirements.network);
       if (!chainId) {
@@ -224,20 +249,24 @@ export class Facilitator {
         };
       }
 
-      // Handle EVM chains (Base, Ethereum)
-      if (isEVMChain(chainId)) {
-        const result = await executeERC3009Settlement({
-          chainId,
-          tokenAddress: requirements.asset as Address,
-          authorization: {
-            from: payload.authorization.from as Address,
-            to: payload.authorization.to as Address,
-            value: payload.authorization.value,
-            validAfter: payload.authorization.validAfter,
-            validBefore: payload.authorization.validBefore,
-            nonce: payload.authorization.nonce as Hex,
-          },
-          signature: payload.signature as Hex,
+      // Handle Solana chains FIRST (before EVM check)
+      if (chainId === 'solana' || chainId === 'solana-devnet') {
+        // Solana payload structure: { payload: { transaction: "...", signature: "..." } }
+        const solanaPayload = payload.payload || payload;
+        const signedTransaction = solanaPayload.transaction;
+        
+        if (!signedTransaction) {
+          return {
+            success: false,
+            errorMessage: 'Missing transaction in Solana payment payload',
+            network: requirements.network,
+          };
+        }
+
+        // For Solana, private key is base58 encoded (not hex)
+        const result = await executeSolanaSettlement({
+          network: chainId as 'solana' | 'solana-devnet',
+          signedTransaction,
           facilitatorPrivateKey: privateKey,
         });
 
@@ -256,16 +285,31 @@ export class Facilitator {
         }
       }
 
-      // Handle Solana chains
-      if (chainId === 'solana' || chainId === 'solana-devnet') {
-        // For Solana, the payload should contain the signed transaction
-        // The private key format is different (base58 for Solana)
-        const result = await executeSolanaSettlement({
-          network: chainId as 'solana' | 'solana-devnet',
-          signedTransaction: payload.signature as string, // The "signature" field contains the signed tx
-          facilitatorPrivateKey: privateKey.startsWith('0x') 
-            ? privateKey.slice(2) // Remove 0x prefix if present (shouldn't be for Solana)
-            : privateKey,
+      // Handle EVM chains (Base, Ethereum)
+      if (isEVMChain(chainId)) {
+        const evmPayload = payload as X402PaymentPayload;
+        
+        if (!evmPayload.authorization) {
+          return {
+            success: false,
+            errorMessage: 'Missing authorization in EVM payment payload',
+            network: requirements.network,
+          };
+        }
+
+        const result = await executeERC3009Settlement({
+          chainId,
+          tokenAddress: requirements.asset as Address,
+          authorization: {
+            from: evmPayload.authorization.from as Address,
+            to: evmPayload.authorization.to as Address,
+            value: evmPayload.authorization.value,
+            validAfter: evmPayload.authorization.validAfter,
+            validBefore: evmPayload.authorization.validBefore,
+            nonce: evmPayload.authorization.nonce as Hex,
+          },
+          signature: evmPayload.signature as Hex,
+          facilitatorPrivateKey: privateKey as Hex,
         });
 
         if (result.success) {

@@ -234,18 +234,28 @@ router.post('/settle', requireFacilitator, async (req: Request, res: Response) =
       }
     }
 
-    const result = await facilitator.settle(paymentPayload, paymentRequirements, privateKey as Hex);
+    const result = await facilitator.settle(paymentPayload, paymentRequirements, privateKey);
 
     // Parse payload to get from address
     const decoded = Buffer.from(paymentPayload, 'base64').toString('utf-8');
     const parsedPayload = JSON.parse(decoded);
+    
+    // Extract from_address based on network type
+    let fromAddress = 'unknown';
+    if (isSolanaNetwork) {
+      // For Solana, payer info is embedded in transaction - use payTo from requirements
+      fromAddress = paymentRequirements.payTo || 'solana-payer';
+    } else {
+      // For EVM, use authorization.from
+      fromAddress = parsedPayload.authorization?.from || 'unknown';
+    }
     
     // Log the settlement attempt
     const transaction = createTransaction({
       facilitator_id: record.id,
       type: 'settle',
       network: paymentRequirements.network,
-      from_address: parsedPayload.authorization?.from || 'unknown',
+      from_address: fromAddress,
       to_address: record.owner_address,
       amount: paymentRequirements.maxAmountRequired,
       asset: paymentRequirements.asset,
