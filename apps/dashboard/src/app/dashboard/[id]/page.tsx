@@ -323,7 +323,7 @@ export default function FacilitatorDetailPage() {
             </CardHeader>
             <CardContent>
               <span className="text-2xl font-bold">
-                {transactionsData?.transactions.filter((t) => t.type === 'verify').length || 0}
+                {transactionsData?.stats?.totalVerifications ?? 0}
               </span>
             </CardContent>
           </Card>
@@ -333,7 +333,7 @@ export default function FacilitatorDetailPage() {
             </CardHeader>
             <CardContent>
               <span className="text-2xl font-bold">
-                {transactionsData?.transactions.filter((t) => t.type === 'settle').length || 0}
+                {transactionsData?.stats?.totalSettlements ?? 0}
               </span>
             </CardContent>
           </Card>
@@ -875,47 +875,89 @@ export default function FacilitatorDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {transactionsData.transactions.map((tx: Transaction) => (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-muted"
-                    >
-                      <div className="flex items-center gap-4">
+                  {transactionsData.transactions.map((tx: Transaction) => {
+                    // Build explorer URL for transaction hash
+                    const getExplorerUrl = () => {
+                      if (!tx.transactionHash) return null;
+                      if (tx.network === 'solana' || tx.network === 'solana-mainnet') {
+                        return `https://solscan.io/tx/${tx.transactionHash}`;
+                      }
+                      if (tx.network === 'solana-devnet') {
+                        return `https://solscan.io/tx/${tx.transactionHash}?cluster=devnet`;
+                      }
+                      if (tx.network === '8453' || tx.network === 'base') {
+                        return `https://basescan.org/tx/${tx.transactionHash}`;
+                      }
+                      if (tx.network === '84532' || tx.network === 'base-sepolia') {
+                        return `https://sepolia.basescan.org/tx/${tx.transactionHash}`;
+                      }
+                      if (tx.network === '1' || tx.network === 'ethereum') {
+                        return `https://etherscan.io/tx/${tx.transactionHash}`;
+                      }
+                      return null;
+                    };
+                    const explorerUrl = getExplorerUrl();
+                    
+                    return (
+                      <div
+                        key={tx.id}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              tx.type === 'verify' ? 'bg-blue-500/20' : 'bg-primary/20'
+                            }`}
+                          >
+                            {tx.type === 'verify' ? (
+                              <Check className="w-4 h-4 text-blue-500" />
+                            ) : (
+                              <ShieldCheck className="w-4 h-4 text-primary" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium capitalize">{tx.type}</p>
+                              {tx.type === 'settle' && explorerUrl && (
+                                <a
+                                  href={explorerUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-primary"
+                                  title="View on explorer"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {formatAddress(tx.fromAddress)} → {formatAddress(tx.toAddress)}
+                            </p>
+                            {tx.type === 'settle' && tx.transactionHash && (
+                              <p className="text-xs text-muted-foreground font-mono">
+                                {formatAddress(tx.transactionHash)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono">{tx.amount}</p>
+                          <p className="text-sm text-muted-foreground">{formatDate(tx.createdAt)}</p>
+                        </div>
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            tx.type === 'verify' ? 'bg-blue-500/20' : 'bg-primary/20'
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            tx.status === 'success'
+                              ? 'bg-primary/20 text-primary'
+                              : tx.status === 'pending'
+                                ? 'bg-yellow-500/20 text-yellow-500'
+                                : 'bg-destructive/20 text-destructive'
                           }`}
                         >
-                          {tx.type === 'verify' ? (
-                            <Check className="w-4 h-4 text-blue-500" />
-                          ) : (
-                            <ShieldCheck className="w-4 h-4 text-primary" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium capitalize">{tx.type}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatAddress(tx.fromAddress)} → {formatAddress(tx.toAddress)}
-                          </p>
+                          {tx.status}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-mono">{tx.amount}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(tx.createdAt)}</p>
-                      </div>
-                      <div
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          tx.status === 'success'
-                            ? 'bg-primary/20 text-primary'
-                            : tx.status === 'pending'
-                              ? 'bg-yellow-500/20 text-yellow-500'
-                              : 'bg-destructive/20 text-destructive'
-                        }`}
-                      >
-                        {tx.status}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

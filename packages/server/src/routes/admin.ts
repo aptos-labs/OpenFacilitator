@@ -7,7 +7,7 @@ import {
   updateFacilitator,
   deleteFacilitator,
 } from '../db/facilitators.js';
-import { getTransactionsByFacilitator } from '../db/transactions.js';
+import { getTransactionsByFacilitator, getTransactionStats } from '../db/transactions.js';
 import { 
   defaultTokens, 
   getWalletAddress, 
@@ -288,6 +288,7 @@ router.get('/facilitators/:id/transactions', requireAuth, async (req: Request, r
     const offset = parseInt(req.query.offset as string) || 0;
 
     const transactions = getTransactionsByFacilitator(req.params.id, limit, offset);
+    const stats = getTransactionStats(req.params.id);
 
     res.json({
       transactions: transactions.map((t) => ({
@@ -303,6 +304,12 @@ router.get('/facilitators/:id/transactions', requireAuth, async (req: Request, r
         errorMessage: t.error_message,
         createdAt: t.created_at,
       })),
+      stats: {
+        totalVerifications: stats.verified,
+        totalSettlements: stats.settled,
+        totalFailed: stats.failed,
+        total: stats.total,
+      },
       pagination: {
         limit,
         offset,

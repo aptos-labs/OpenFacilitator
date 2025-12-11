@@ -151,7 +151,11 @@ class ApiClient {
     facilitatorId: string,
     limit = 50,
     offset = 0
-  ): Promise<{ transactions: Transaction[]; pagination: { limit: number; offset: number } }> {
+  ): Promise<{ 
+    transactions: Transaction[]; 
+    stats: { totalVerifications: number; totalSettlements: number; totalFailed: number; total: number };
+    pagination: { limit: number; offset: number } 
+  }> {
     return this.request(
       `/api/admin/facilitators/${facilitatorId}/transactions?limit=${limit}&offset=${offset}`
     );
