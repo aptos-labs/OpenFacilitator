@@ -22,6 +22,7 @@ import {
   Plus,
   Trash2,
   Import,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,9 +58,11 @@ export default function FacilitatorDetailPage() {
   const [isImportWalletOpen, setIsImportWalletOpen] = useState(false);
   const [isImportSolanaWalletOpen, setIsImportSolanaWalletOpen] = useState(false);
   const [isChangeDomainOpen, setIsChangeDomainOpen] = useState(false);
+  const [isEditInfoOpen, setIsEditInfoOpen] = useState(false);
   const [importPrivateKey, setImportPrivateKey] = useState('');
   const [importSolanaPrivateKey, setImportSolanaPrivateKey] = useState('');
   const [newDomain, setNewDomain] = useState('');
+  const [editName, setEditName] = useState('');
   const queryClient = useQueryClient();
 
   const { data: facilitator, isLoading } = useQuery({
@@ -88,6 +91,16 @@ export default function FacilitatorDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['domainStatus', id] });
       setIsChangeDomainOpen(false);
       setNewDomain('');
+    },
+  });
+
+  const updateNameMutation = useMutation({
+    mutationFn: (name: string) => api.updateFacilitator(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['facilitator', id] });
+      queryClient.invalidateQueries({ queryKey: ['facilitators'] });
+      setIsEditInfoOpen(false);
+      setEditName('');
     },
   });
 
@@ -247,7 +260,56 @@ export default function FacilitatorDetailPage() {
         {/* Facilitator header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{facilitator.name}</h1>
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-3xl font-bold">{facilitator.name}</h1>
+              <Dialog open={isEditInfoOpen} onOpenChange={(open) => {
+                setIsEditInfoOpen(open);
+                if (open) setEditName(facilitator.name);
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Facilitator</DialogTitle>
+                    <DialogDescription>
+                      Update your facilitator settings.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="editName">Name</Label>
+                      <Input
+                        id="editName"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="My Facilitator"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setIsEditInfoOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => updateNameMutation.mutate(editName)}
+                      disabled={!editName || editName === facilitator.name || updateNameMutation.isPending}
+                    >
+                      {updateNameMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save'
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-muted-foreground">{facilitator.url}</span>
               <button
