@@ -93,23 +93,23 @@ export interface BillingWalletCreateResponse {
 
 export interface SubscriptionStatus {
   active: boolean;
-  tier: 'basic' | 'pro' | null;
+  tier: 'starter' | 'basic' | 'pro' | null; // 'basic' and 'pro' for backwards compatibility
   expires: string | null;
 }
 
 export interface SubscriptionPricing {
-  basic: { price: number; priceFormatted: string; currency: string; period: string };
-  pro: { price: number; priceFormatted: string; currency: string; period: string };
+  starter: { price: number; priceFormatted: string; currency: string; period: string };
 }
 
 export interface PurchaseResult {
   success: boolean;
   message?: string;
-  tier?: 'basic' | 'pro';
+  tier?: 'starter';
   error?: string;
   insufficientBalance?: boolean;
   required?: string;
   available?: string;
+  txHash?: string;
 }
 
 class ApiClient {
@@ -235,6 +235,16 @@ class ApiClient {
     return this.request(`/api/admin/facilitators/${facilitatorId}/domain/status`);
   }
 
+  async getSubdomainStatus(facilitatorId: string): Promise<{
+    domain: string;
+    status: 'pending' | 'active' | 'not_added' | 'unconfigured';
+    railwayConfigured: boolean;
+    message?: string;
+    dnsRecords?: { type: string; name: string; value: string }[];
+  }> {
+    return this.request(`/api/admin/facilitators/${facilitatorId}/subdomain/status`);
+  }
+
   // Wallet Management
   async getWallet(facilitatorId: string): Promise<WalletInfo> {
     return this.request(`/api/admin/facilitators/${facilitatorId}/wallet`);
@@ -303,12 +313,12 @@ class ApiClient {
     return this.request('/api/subscriptions/pricing');
   }
 
-  async purchaseSubscription(tier: 'basic' | 'pro'): Promise<PurchaseResult> {
+  async purchaseSubscription(): Promise<PurchaseResult> {
     const response = await fetch(`${this.baseUrl}/api/subscriptions/purchase`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier }),
+      body: JSON.stringify({ tier: 'starter' }),
     });
 
     const data = await response.json();

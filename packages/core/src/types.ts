@@ -120,20 +120,22 @@ export interface SettleResponse {
 }
 
 /**
- * Supported tokens/chains response
+ * Supported tokens/chains response (PayAI format)
  */
 export interface SupportedResponse {
-  x402Version: number;
   kinds: SupportedKind[];
+  extensions?: string[];
+  signers?: Record<string, string[]>;
 }
 
 /**
  * A supported payment kind (network + token combination)
  */
 export interface SupportedKind {
+  x402Version: number;
   scheme: string;
   network: string;
-  asset: string;
+  asset?: string;
   extra?: Record<string, unknown>;
 }
 

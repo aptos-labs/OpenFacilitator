@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
-import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey } from '@openfacilitator/core';
+import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2 } from '@openfacilitator/core';
 import { z } from 'zod';
 import { requireFacilitator } from '../middleware/tenant.js';
 import { createTransaction, updateTransactionStatus } from '../db/transactions.js';
@@ -45,6 +45,16 @@ function normalizePaymentPayload(payload: string | object): string {
 }
 
 /**
+ * Check if a network identifier is a Solana network
+ */
+function isSolanaNetwork(network: string): boolean {
+  return network === 'solana' ||
+         network === 'solana-mainnet' ||
+         network === 'solana-devnet' ||
+         network.startsWith('solana:');
+}
+
+/**
  * GET /supported - Get supported payment networks and tokens
  */
 router.get('/supported', requireFacilitator, (req: Request, res: Response) => {
@@ -66,15 +76,26 @@ router.get('/supported', requireFacilitator, (req: Request, res: Response) => {
   const facilitator = createFacilitator(config);
   const supported = facilitator.getSupported();
 
-  // Add feePayer for Solana networks (required by x402-solana library)
+  // Build signers object with namespace prefixes
+  const signers: Record<string, string[]> = {};
+
+  // Add EVM signer address if available
+  if (record.owner_address) {
+    signers['eip155:*'] = [record.owner_address];
+  }
+
+  // Add feePayer for Solana networks and build signers
   if (record.encrypted_solana_private_key) {
     try {
       const solanaPrivateKey = decryptPrivateKey(record.encrypted_solana_private_key);
       const solanaFeePayer = getSolanaPublicKey(solanaPrivateKey);
-      
-      // Add feePayer to Solana kinds
+
+      // Add to signers
+      signers['solana:*'] = [solanaFeePayer];
+
+      // Add feePayer to Solana kinds (both v1 human-readable and v2 CAIP-2 formats)
       supported.kinds = supported.kinds.map(kind => {
-        if (kind.network === 'solana' || kind.network === 'solana-mainnet' || kind.network === 'solana-devnet') {
+        if (isSolanaNetwork(kind.network)) {
           return {
             ...kind,
             extra: {
@@ -89,6 +110,10 @@ router.get('/supported', requireFacilitator, (req: Request, res: Response) => {
       console.error('Failed to get Solana fee payer address:', e);
     }
   }
+
+  // Add signers and extensions to response
+  supported.signers = signers;
+  supported.extensions = [];
 
   res.json(supported);
 });
@@ -187,12 +212,12 @@ router.post('/settle', requireFacilitator, async (req: Request, res: Response) =
 
     const facilitator = createFacilitator(config);
 
-    // Determine which private key to use based on network
-    const isSolanaNetwork = paymentRequirements.network === 'solana' || paymentRequirements.network === 'solana-mainnet' || paymentRequirements.network === 'solana-devnet';
+    // Determine which private key to use based on network (supports both v1 and CAIP-2 formats)
+    const isSolana = isSolanaNetwork(paymentRequirements.network);
     
     let privateKey: string | undefined;
     
-    if (isSolanaNetwork) {
+    if (isSolana) {
       // Use Solana wallet for Solana networks
       if (record.encrypted_solana_private_key) {
         try {
@@ -243,7 +268,7 @@ router.post('/settle', requireFacilitator, async (req: Request, res: Response) =
     // Extract from_address based on network type
     // Handle both flat and nested payload structures
     let fromAddress = 'unknown';
-    if (isSolanaNetwork) {
+    if (isSolana) {
       // For Solana, the payer is the fee payer - use payTo from requirements as fallback
       // In x402, the payer signs the transaction, we don't have direct access to their address
       // Use the configured feePayer or payTo as identifier

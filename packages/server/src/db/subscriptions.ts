@@ -4,7 +4,7 @@ import { getDatabase } from './index.js';
 export interface Subscription {
   id: string;
   user_id: string;
-  tier: 'basic' | 'pro';
+  tier: 'starter'; // Single paid tier - $5/month
   amount: number;
   tx_hash: string | null;
   started_at: string;
@@ -14,16 +14,18 @@ export interface Subscription {
 
 // Pricing in USDC (6 decimals)
 export const SUBSCRIPTION_PRICING = {
-  basic: 5_000_000,  // $5 USDC
-  pro: 25_000_000,   // $25 USDC
+  starter: 5_000_000,  // $5 USDC
 } as const;
+
+// Subscription tier type
+export type SubscriptionTier = 'starter';
 
 /**
  * Create a new subscription record
  */
 export function createSubscription(
   userId: string,
-  tier: 'basic' | 'pro',
+  tier: SubscriptionTier,
   expiresAt: Date,
   txHash?: string | null,
   amount?: number
@@ -96,7 +98,7 @@ export function getSubscriptionByTxHash(txHash: string): Subscription | null {
 export function extendSubscription(
   subscriptionId: string,
   additionalDays: number,
-  tier: 'basic' | 'pro',
+  tier: SubscriptionTier = 'starter',
   newTxHash?: string | null
 ): Subscription | null {
   const db = getDatabase();
@@ -117,16 +119,13 @@ export function extendSubscription(
 
   const amount = SUBSCRIPTION_PRICING[tier];
 
-  // Update the subscription (upgrade tier if higher)
-  const newTier = tier === 'pro' || current.tier === 'pro' ? 'pro' : 'basic';
-
   const stmt = db.prepare(`
     UPDATE subscriptions
     SET expires_at = ?, tier = ?, amount = amount + ?
     WHERE id = ?
   `);
 
-  stmt.run(newExpires.toISOString(), newTier, amount, subscriptionId);
+  stmt.run(newExpires.toISOString(), tier, amount, subscriptionId);
 
   return getSubscriptionById(subscriptionId);
 }

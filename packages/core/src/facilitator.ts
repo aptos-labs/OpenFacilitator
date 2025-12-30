@@ -19,7 +19,7 @@ import type {
   X402PaymentPayload,
   ChainId,
 } from './types.js';
-import { getChainIdFromNetwork, getNetworkFromChainId, defaultChains } from './chains.js';
+import { getChainIdFromNetwork, getNetworkFromChainId, getCaip2FromNetwork, defaultChains } from './chains.js';
 import { executeERC3009Settlement } from './erc3009.js';
 import { executeSolanaSettlement } from './solana.js';
 
@@ -150,23 +150,53 @@ export class Facilitator {
 
   /**
    * Get supported payment kinds for this facilitator
+   * Returns both v1 (human-readable network) and v2 (CAIP-2) format kinds
+   * Deduped by network (one entry per network, not per token)
    */
   getSupported(): SupportedResponse {
     const kinds: SupportedKind[] = [];
+    const seenNetworks = new Set<string>();
 
-    for (const token of this.config.supportedTokens) {
-      const network = getNetworkFromChainId(token.chainId);
-      if (network) {
-        kinds.push({
+    for (const chainId of this.config.supportedChains) {
+      const network = getNetworkFromChainId(chainId);
+      if (!network || seenNetworks.has(network)) continue;
+      seenNetworks.add(network);
+
+      const caip2Network = getCaip2FromNetwork(network);
+      const chainConfig = defaultChains[String(chainId)];
+      const isSolana = chainConfig && !chainConfig.isEVM;
+
+      // v1 format - human-readable network name
+      const v1Kind: SupportedKind = {
+        x402Version: 1,
+        scheme: 'exact',
+        network,
+      };
+
+      // Add feePayer extra for Solana
+      if (isSolana) {
+        v1Kind.extra = { feePayer: this.config.ownerAddress };
+      }
+
+      kinds.push(v1Kind);
+
+      // v2 format - CAIP-2 network identifier
+      if (caip2Network) {
+        const v2Kind: SupportedKind = {
+          x402Version: 2,
           scheme: 'exact',
-          network,
-          asset: token.address,
-        });
+          network: caip2Network,
+        };
+
+        if (isSolana) {
+          v2Kind.extra = { feePayer: this.config.ownerAddress };
+        }
+
+        kinds.push(v2Kind);
       }
     }
 
     return {
-      x402Version: 1,
       kinds,
     };
   }

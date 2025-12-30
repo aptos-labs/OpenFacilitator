@@ -9,6 +9,7 @@ import { useAuth } from '@/components/auth/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
 import { SubscriptionConfirmDialog } from '@/components/subscription-confirm-dialog';
+import { SubscriptionSuccessDialog } from '@/components/subscription-success-dialog';
 
 const FREE_ENDPOINT = 'https://x402.openfacilitator.io';
 
@@ -32,23 +33,21 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
-function PricingButton({
-  tier,
+function SubscribeButton({
   className,
   isPurchasing,
-  onPurchase,
+  onSubscribe,
 }: {
-  tier: 'basic' | 'pro';
   className?: string;
   isPurchasing: boolean;
-  onPurchase: (tier: 'basic' | 'pro') => void;
+  onSubscribe: () => void;
 }) {
   const { isAuthenticated } = useAuth();
 
   if (isAuthenticated) {
     return (
       <button
-        onClick={() => onPurchase(tier)}
+        onClick={onSubscribe}
         disabled={isPurchasing}
         className={`${className} disabled:opacity-50 disabled:cursor-not-allowed`}
       >
@@ -76,9 +75,10 @@ export default function Home() {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [purchasingTier, setPurchasingTier] = useState<'basic' | 'pro' | null>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [confirmTier, setConfirmTier] = useState<'basic' | 'pro' | null>(null);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successTxHash, setSuccessTxHash] = useState<string | undefined>();
 
   const { data: billingWallet } = useQuery({
     queryKey: ['billingWallet'],
@@ -87,13 +87,12 @@ export default function Home() {
   });
 
   const purchaseMutation = useMutation({
-    mutationFn: (tier: 'basic' | 'pro') => api.purchaseSubscription(tier),
+    mutationFn: () => api.purchaseSubscription(),
     onSuccess: (result) => {
       if (result.success) {
-        toast({
-          title: 'Subscription activated!',
-          description: `Your ${result.tier} subscription is now active.`,
-        });
+        // Show success dialog
+        setSuccessTxHash(result.txHash);
+        setSuccessDialogOpen(true);
         queryClient.invalidateQueries({ queryKey: ['subscription'] });
         queryClient.invalidateQueries({ queryKey: ['billingWallet'] });
       } else if (result.insufficientBalance) {
@@ -109,7 +108,7 @@ export default function Home() {
           variant: 'destructive',
         });
       }
-      setPurchasingTier(null);
+      setIsPurchasing(false);
     },
     onError: (error) => {
       toast({
@@ -117,21 +116,19 @@ export default function Home() {
         description: error instanceof Error ? error.message : 'Something went wrong',
         variant: 'destructive',
       });
-      setPurchasingTier(null);
+      setIsPurchasing(false);
     },
   });
 
   // Open confirmation dialog
-  const handleUpgradeClick = (tier: 'basic' | 'pro') => {
-    setConfirmTier(tier);
+  const handleSubscribeClick = () => {
     setConfirmDialogOpen(true);
   };
 
   // Execute purchase after confirmation
   const handleConfirmPurchase = () => {
-    if (!confirmTier) return;
-    setPurchasingTier(confirmTier);
-    purchaseMutation.mutate(confirmTier);
+    setIsPurchasing(true);
+    purchaseMutation.mutate();
   };
 
   const scrollTo = (id: string) => {
@@ -149,7 +146,7 @@ export default function Home() {
             Launch <span className="text-primary">your own</span> <span className="whitespace-nowrap">x402 facilitator</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-            Start free. Add your brand when you&apos;re ready.
+            Start free. Add your domain when you&apos;re ready.
           </p>
           <div className="flex items-center justify-center gap-4">
             <button
@@ -310,7 +307,7 @@ const handler = createPaymentHandler({
             </div>
           )}
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
             {/* Free */}
             <div className="p-6 rounded-2xl bg-secondary/30 border border-border">
               <h3 className="text-lg font-semibold mb-2">Free</h3>
@@ -338,9 +335,9 @@ const handler = createPaymentHandler({
               </ul>
             </div>
 
-            {/* Basic */}
+            {/* Starter */}
             <div className="p-6 rounded-2xl bg-background border-2 border-primary">
-              <h3 className="text-lg font-semibold mb-2">Basic</h3>
+              <h3 className="text-lg font-semibold mb-2">Starter</h3>
               <div className="flex items-baseline gap-1 mb-4">
                 <span className="text-3xl font-bold">$5</span>
                 <span className="text-muted-foreground">/month</span>
@@ -348,7 +345,11 @@ const handler = createPaymentHandler({
               <ul className="space-y-2 mb-6 text-sm">
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-primary" />
-                  your.openfacilitator.io
+                  Your own custom domain
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-primary" />
+                  pay.yourdomain.com
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-primary" />
@@ -358,49 +359,11 @@ const handler = createPaymentHandler({
                   <Check className="w-4 h-4 text-primary" />
                   Manage your keys
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary" />
-                  Email support
-                </li>
               </ul>
-              <PricingButton
-                tier="basic"
+              <SubscribeButton
                 className="block w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-center font-medium hover:bg-primary/90 transition-colors text-sm"
-                isPurchasing={purchasingTier === 'basic'}
-                onPurchase={handleUpgradeClick}
-              />
-            </div>
-
-            {/* Pro */}
-            <div className="p-6 rounded-2xl bg-background border border-border">
-              <h3 className="text-lg font-semibold mb-2">Pro</h3>
-              <div className="flex items-baseline gap-1 mb-4">
-                <span className="text-3xl font-bold">$25</span>
-                <span className="text-muted-foreground">/month</span>
-              </div>
-              <ul className="space-y-2 mb-6 text-sm">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary" />
-                  Custom domain
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary" />
-                  pay.yourbrand.com
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary" />
-                  Auto SSL
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-primary" />
-                  Priority support
-                </li>
-              </ul>
-              <PricingButton
-                tier="pro"
-                className="block w-full py-2.5 rounded-lg border border-border text-center font-medium hover:bg-secondary transition-colors text-sm"
-                isPurchasing={purchasingTier === 'pro'}
-                onPurchase={handleUpgradeClick}
+                isPurchasing={isPurchasing}
+                onSubscribe={handleSubscribeClick}
               />
             </div>
           </div>
@@ -487,10 +450,18 @@ const handler = createPaymentHandler({
       <SubscriptionConfirmDialog
         open={confirmDialogOpen}
         onOpenChange={setConfirmDialogOpen}
-        tier={confirmTier}
+        tier="starter"
         balance={billingWallet?.balance ?? null}
-        isPurchasing={purchasingTier !== null}
+        isPurchasing={isPurchasing}
         onConfirm={handleConfirmPurchase}
+      />
+
+      {/* Subscription Success Dialog */}
+      <SubscriptionSuccessDialog
+        open={successDialogOpen}
+        onOpenChange={setSuccessDialogOpen}
+        tier="starter"
+        txHash={successTxHash}
       />
     </div>
   );

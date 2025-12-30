@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
-import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey } from '@openfacilitator/core';
+import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2 } from '@openfacilitator/core';
 import { z } from 'zod';
 import { createTransaction, updateTransactionStatus } from '../db/transactions.js';
 import type { Hex } from 'viem';
@@ -94,6 +94,16 @@ function getFreeFacilitatorConfig(): { config: FacilitatorConfig; evmPrivateKey?
 }
 
 /**
+ * Check if a network identifier is a Solana network
+ */
+function isSolanaNetwork(network: string): boolean {
+  return network === 'solana' ||
+         network === 'solana-mainnet' ||
+         network === 'solana-devnet' ||
+         network.startsWith('solana:');
+}
+
+/**
  * GET /free/supported - Get supported payment networks (no auth required)
  */
 router.get('/free/supported', (_req: Request, res: Response) => {
@@ -110,12 +120,26 @@ router.get('/free/supported', (_req: Request, res: Response) => {
   const facilitator = createFacilitator(facilitatorData.config);
   const supported = facilitator.getSupported();
 
+  // Build signers object with namespace prefixes
+  const signers: Record<string, string[]> = {};
+  const evmAddress = process.env.FREE_FACILITATOR_EVM_ADDRESS;
+
+  // Add EVM signer if configured
+  if (evmAddress) {
+    signers['eip155:*'] = [evmAddress];
+  }
+
   // Add feePayer for Solana if configured
   if (facilitatorData.solanaPrivateKey) {
     try {
       const solanaFeePayer = getSolanaPublicKey(facilitatorData.solanaPrivateKey);
+
+      // Add to signers
+      signers['solana:*'] = [solanaFeePayer];
+
+      // Add feePayer to Solana kinds (both v1 human-readable and v2 CAIP-2 formats)
       supported.kinds = supported.kinds.map(kind => {
-        if (kind.network === 'solana' || kind.network === 'solana-mainnet') {
+        if (isSolanaNetwork(kind.network)) {
           return {
             ...kind,
             extra: {
@@ -130,6 +154,10 @@ router.get('/free/supported', (_req: Request, res: Response) => {
       console.error('Failed to get Solana fee payer address:', e);
     }
   }
+
+  // Add signers and extensions to response
+  supported.signers = signers;
+  supported.extensions = [];
 
   res.json(supported);
 });
@@ -220,14 +248,12 @@ router.post('/free/settle', async (req: Request, res: Response) => {
 
     const facilitator = createFacilitator(facilitatorData.config);
 
-    // Determine which private key to use based on network
-    const isSolanaNetwork = paymentRequirements.network === 'solana' || 
-                            paymentRequirements.network === 'solana-mainnet' || 
-                            paymentRequirements.network === 'solana-devnet';
+    // Determine which private key to use based on network (supports both v1 and CAIP-2 formats)
+    const isSolana = isSolanaNetwork(paymentRequirements.network);
 
     let privateKey: string | undefined;
 
-    if (isSolanaNetwork) {
+    if (isSolana) {
       if (!facilitatorData.solanaPrivateKey) {
         res.status(503).json({
           success: false,
@@ -255,7 +281,7 @@ router.post('/free/settle', async (req: Request, res: Response) => {
     
     // Extract from_address - handle both flat and nested payload structures
     let fromAddress = 'unknown';
-    if (isSolanaNetwork) {
+    if (isSolana) {
       fromAddress = paymentRequirements.payTo || 'solana-payer';
     } else {
       // For EVM, use authorization.from - handle both nested and flat formats

@@ -6,6 +6,7 @@ import {
   extendSubscription,
   userExists,
   SUBSCRIPTION_PRICING,
+  type SubscriptionTier,
 } from '../db/subscriptions.js';
 import { getUserWalletByUserId } from '../db/user-wallets.js';
 import { decryptPrivateKey } from '../utils/crypto.js';
@@ -15,18 +16,17 @@ import { requireAuth } from '../middleware/auth.js';
 // Memeputer x402 endpoints
 const MEMEPUTER_X402_BASE_URL = process.env.MEMEPUTER_X402_BASE_URL;
 
-function getMemeputerEndpoint(tier: 'basic' | 'pro'): string {
-  const command = tier === 'basic' ? 'subscribe_basic' : 'subscribe_pro';
-  return `${MEMEPUTER_X402_BASE_URL}/x402/solana/openfacilitator_agent/${command}`;
+function getMemeputerEndpoint(): string {
+  return `${MEMEPUTER_X402_BASE_URL}/x402/solana/openfacilitator_agent/subscribe`;
 }
 
 const router: IRouter = Router();
 
 // Validation schema for activate endpoint
-// Memeputer only sends userId and tier - payment is handled before webhook
+// Memeputer only sends userId - payment is handled before webhook
 const activateSchema = z.object({
   userId: z.string().min(1),
-  tier: z.enum(['basic', 'pro']),
+  tier: z.enum(['starter']).optional().default('starter'),
 });
 
 /**
@@ -84,8 +84,9 @@ router.post('/activate', verifyWebhookSecret, async (req: Request, res: Response
     }
 
     const { userId, tier } = parsed.data;
+    const subscriptionTier: SubscriptionTier = 'starter';
 
-    console.log(`[Activate Webhook] Received for user ${userId}, tier ${tier}`);
+    console.log(`[Activate Webhook] Received for user ${userId}`);
 
     // Validate user exists
     if (!userExists(userId)) {
@@ -99,9 +100,9 @@ router.post('/activate', verifyWebhookSecret, async (req: Request, res: Response
     // Check for existing active subscription
     const existingSub = getActiveSubscription(userId);
 
-    // If subscription already exists and matches tier, this is likely a duplicate call
+    // If subscription already exists, this is likely a duplicate call
     // (subscription was already created by /purchase). Return success without creating.
-    if (existingSub && existingSub.tier === tier) {
+    if (existingSub) {
       // Check if subscription was created recently (within last 5 minutes)
       const createdAt = new Date(existingSub.created_at);
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -124,15 +125,15 @@ router.post('/activate', verifyWebhookSecret, async (req: Request, res: Response
 
     if (existingSub) {
       // Extend existing subscription (no tx hash from webhook)
-      subscription = extendSubscription(existingSub.id, SUBSCRIPTION_DAYS, tier);
-      console.log(`[Activate Webhook] Extended ${tier} subscription for user ${userId}: ${subscription?.expires_at}`);
+      subscription = extendSubscription(existingSub.id, SUBSCRIPTION_DAYS, subscriptionTier);
+      console.log(`[Activate Webhook] Extended subscription for user ${userId}: ${subscription?.expires_at}`);
     } else {
       // Create new subscription (no tx hash from webhook)
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + SUBSCRIPTION_DAYS);
 
-      subscription = createSubscription(userId, tier, expiresAt);
-      console.log(`[Activate Webhook] Created new ${tier} subscription for user ${userId}: expires ${subscription.expires_at}`);
+      subscription = createSubscription(userId, subscriptionTier, expiresAt);
+      console.log(`[Activate Webhook] Created new subscription for user ${userId}: expires ${subscription.expires_at}`);
     }
 
     if (!subscription) {
@@ -189,24 +190,18 @@ router.get('/status', requireAuth, async (req: Request, res: Response) => {
  */
 router.get('/pricing', (_req: Request, res: Response) => {
   res.json({
-    basic: {
-      price: SUBSCRIPTION_PRICING.basic,
+    starter: {
+      price: SUBSCRIPTION_PRICING.starter,
       priceFormatted: '$5.00',
-      currency: 'USDC',
-      period: '30 days',
-    },
-    pro: {
-      price: SUBSCRIPTION_PRICING.pro,
-      priceFormatted: '$25.00',
       currency: 'USDC',
       period: '30 days',
     },
   });
 });
 
-// Validation schema for purchase endpoint
+// Validation schema for purchase endpoint (tier is optional, defaults to starter)
 const purchaseSchema = z.object({
-  tier: z.enum(['basic', 'pro']),
+  tier: z.enum(['starter']).optional().default('starter'),
 });
 
 /**
@@ -230,7 +225,7 @@ router.post('/purchase', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    const { tier } = parsed.data;
+    const subscriptionTier: SubscriptionTier = 'starter';
     const userId = req.user!.id;
 
     // Check if Memeputer URL is configured
@@ -243,7 +238,7 @@ router.post('/purchase', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`[Purchase] User ${userId} attempting to purchase ${tier} subscription`);
+    console.log(`[Purchase] User ${userId} attempting to purchase subscription`);
 
     // Get user's wallet
     const wallet = getUserWalletByUserId(userId);
@@ -270,7 +265,7 @@ router.post('/purchase', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Get Memeputer endpoint
-    const endpoint = getMemeputerEndpoint(tier);
+    const endpoint = getMemeputerEndpoint();
     console.log(`[Purchase] Calling Memeputer endpoint: ${endpoint}`);
 
     // Make x402 payment
@@ -305,7 +300,7 @@ router.post('/purchase', requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    console.log(`[Purchase] Payment successful for user ${userId}, tier ${tier}, txHash: ${result.txHash}`);
+    console.log(`[Purchase] Payment successful for user ${userId}, txHash: ${result.txHash}`);
 
     // Create subscription directly with tx hash
     const SUBSCRIPTION_DAYS = 30;
@@ -314,15 +309,15 @@ router.post('/purchase', requireAuth, async (req: Request, res: Response) => {
 
     if (existingSub) {
       // Extend existing subscription
-      subscription = extendSubscription(existingSub.id, SUBSCRIPTION_DAYS, tier, result.txHash);
-      console.log(`[Purchase] Extended ${tier} subscription for user ${userId}: ${subscription?.expires_at}`);
+      subscription = extendSubscription(existingSub.id, SUBSCRIPTION_DAYS, subscriptionTier, result.txHash);
+      console.log(`[Purchase] Extended subscription for user ${userId}: ${subscription?.expires_at}`);
     } else {
       // Create new subscription
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + SUBSCRIPTION_DAYS);
 
-      subscription = createSubscription(userId, tier, expiresAt, result.txHash);
-      console.log(`[Purchase] Created new ${tier} subscription for user ${userId}: expires ${subscription.expires_at}`);
+      subscription = createSubscription(userId, subscriptionTier, expiresAt, result.txHash);
+      console.log(`[Purchase] Created new subscription for user ${userId}: expires ${subscription.expires_at}`);
     }
 
     if (!subscription) {

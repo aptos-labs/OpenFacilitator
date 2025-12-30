@@ -51,6 +51,17 @@ export function resolveFacilitator(req: Request, res: Response, next: NextFuncti
     return;
   }
 
+  // Dev mode: allow X-Facilitator-Subdomain header for local testing
+  const devSubdomain = req.headers['x-facilitator-subdomain'] as string | undefined;
+  if (devSubdomain) {
+    const facilitator = getFacilitatorBySubdomain(devSubdomain);
+    if (facilitator) {
+      req.facilitator = facilitator;
+      next();
+      return;
+    }
+  }
+
   // Try subdomain first
   const subdomain = extractSubdomain(hostname);
   if (subdomain) {

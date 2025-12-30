@@ -229,10 +229,35 @@ export const chainIdToNetwork: Record<string | number, string> = {
 };
 
 /**
- * Get chain ID from network name
+ * Get chain ID from network name (supports both v1 human-readable and v2 CAIP-2 formats)
  */
 export function getChainIdFromNetwork(network: string): number | string | undefined {
-  return networkToChainId[network.toLowerCase()];
+  // First try direct lookup (v1 human-readable format)
+  const direct = networkToChainId[network.toLowerCase()];
+  if (direct !== undefined) return direct;
+
+  // Try CAIP-2 format - parse and extract chain ID
+  if (network.startsWith('eip155:')) {
+    const chainIdStr = network.slice(7); // Remove 'eip155:' prefix
+    const chainId = parseInt(chainIdStr, 10);
+    if (!isNaN(chainId) && chainIdToNetwork[chainId]) {
+      return chainId;
+    }
+  }
+
+  // Try Solana CAIP-2 format
+  if (network.startsWith('solana:')) {
+    const genesisHash = network.slice(7); // Remove 'solana:' prefix
+    // Check known genesis hashes
+    if (genesisHash === '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp') {
+      return 'solana';
+    }
+    if (genesisHash === 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1') {
+      return 'solana-devnet';
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -269,3 +294,95 @@ export const testChains = [
   195,      // XLayer Testnet
   'solana-devnet',
 ] as const;
+
+// ===== CAIP-2 Network Identifiers =====
+// https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
+
+/**
+ * Solana genesis hash prefixes for CAIP-2
+ */
+export const solanaGenesisHashes = {
+  mainnet: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+  devnet: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+  testnet: '4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z',
+} as const;
+
+/**
+ * Network name to CAIP-2 identifier mapping
+ */
+export const networkToCaip2: Record<string, string> = {
+  // EVM Mainnets
+  avalanche: 'eip155:43114',
+  base: 'eip155:8453',
+  ethereum: 'eip155:1',
+  iotex: 'eip155:4689',
+  peaq: 'eip155:3338',
+  polygon: 'eip155:137',
+  sei: 'eip155:1329',
+  xlayer: 'eip155:196',
+  // Solana
+  solana: `solana:${solanaGenesisHashes.mainnet}`,
+  // EVM Testnets
+  'avalanche-fuji': 'eip155:43113',
+  'base-sepolia': 'eip155:84532',
+  'polygon-amoy': 'eip155:80002',
+  'sei-testnet': 'eip155:1328',
+  sepolia: 'eip155:11155111',
+  'xlayer-testnet': 'eip155:195',
+  'solana-devnet': `solana:${solanaGenesisHashes.devnet}`,
+};
+
+/**
+ * CAIP-2 identifier to network name mapping
+ */
+export const caip2ToNetwork: Record<string, string> = {
+  // EVM Mainnets
+  'eip155:43114': 'avalanche',
+  'eip155:8453': 'base',
+  'eip155:1': 'ethereum',
+  'eip155:4689': 'iotex',
+  'eip155:3338': 'peaq',
+  'eip155:137': 'polygon',
+  'eip155:1329': 'sei',
+  'eip155:196': 'xlayer',
+  // Solana
+  [`solana:${solanaGenesisHashes.mainnet}`]: 'solana',
+  // EVM Testnets
+  'eip155:43113': 'avalanche-fuji',
+  'eip155:84532': 'base-sepolia',
+  'eip155:80002': 'polygon-amoy',
+  'eip155:1328': 'sei-testnet',
+  'eip155:11155111': 'sepolia',
+  'eip155:195': 'xlayer-testnet',
+  [`solana:${solanaGenesisHashes.devnet}`]: 'solana-devnet',
+};
+
+/**
+ * Get CAIP-2 identifier from network name
+ */
+export function getCaip2FromNetwork(network: string): string | undefined {
+  return networkToCaip2[network.toLowerCase()];
+}
+
+/**
+ * Get network name from CAIP-2 identifier
+ */
+export function getNetworkFromCaip2(caip2: string): string | undefined {
+  return caip2ToNetwork[caip2];
+}
+
+/**
+ * Get CAIP-2 namespace prefix from network (e.g., "eip155:*" or "solana:*")
+ */
+export function getCaip2Namespace(network: string): string {
+  const config = getChainConfig(network);
+  if (!config) return 'eip155:*';
+  return config.isEVM ? 'eip155:*' : 'solana:*';
+}
+
+/**
+ * Check if a network identifier is CAIP-2 format
+ */
+export function isCaip2Format(identifier: string): boolean {
+  return identifier.includes(':') && (identifier.startsWith('eip155:') || identifier.startsWith('solana:'));
+}

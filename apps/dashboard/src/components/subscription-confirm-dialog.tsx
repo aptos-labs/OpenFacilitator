@@ -13,29 +13,20 @@ import {
 interface SubscriptionConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tier: 'basic' | 'pro' | null;
+  tier: 'starter' | 'basic' | 'pro' | null; // Keep basic/pro for backwards compatibility
   balance: string | null;
   isPurchasing: boolean;
   onConfirm: () => void;
 }
 
-const PRICING = {
-  basic: 5,
-  pro: 25,
-} as const;
+const PRICE = 5; // $5/month for starter tier
 
-const BENEFITS = {
-  basic: [
-    'Your own subdomain (yourname.openfacilitator.io)',
-    'Dashboard & analytics',
-    'Email support',
-  ],
-  pro: [
-    'Custom domain (pay.yourdomain.com)',
-    'Auto SSL certificates',
-    'Priority support',
-  ],
-} as const;
+const BENEFITS = [
+  'Your own custom domain (pay.yourdomain.com)',
+  'Base + Solana support',
+  'USDC payments',
+  'Dashboard & analytics',
+];
 
 export function SubscriptionConfirmDialog({
   open,
@@ -47,10 +38,8 @@ export function SubscriptionConfirmDialog({
 }: SubscriptionConfirmDialogProps) {
   if (!tier) return null;
 
-  const price = PRICING[tier];
   const balanceNum = balance ? parseFloat(balance) : 0;
-  const hasInsufficientBalance = balanceNum < price;
-  const benefits = BENEFITS[tier];
+  const hasInsufficientBalance = balanceNum < PRICE;
 
   const handleConfirm = () => {
     onConfirm();
@@ -62,13 +51,13 @@ export function SubscriptionConfirmDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            Upgrade to {tier === 'basic' ? 'Basic' : 'Pro'}
+            Subscribe to Starter
           </DialogTitle>
         </DialogHeader>
 
         {/* Benefits */}
         <ul className="space-y-2 py-2">
-          {benefits.map((benefit) => (
+          {BENEFITS.map((benefit) => (
             <li key={benefit} className="flex items-start gap-2 text-sm">
               <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <span>{benefit}</span>
@@ -78,7 +67,7 @@ export function SubscriptionConfirmDialog({
 
         {/* Price and balance - inline */}
         <div className={`text-sm ${hasInsufficientBalance ? 'text-orange-500' : 'text-muted-foreground'}`}>
-          ${price}/month · {hasInsufficientBalance ? 'Insufficient balance' : 'Paying from your wallet'} (${balance ?? '0.00'} available)
+          ${PRICE}/month · {hasInsufficientBalance ? 'Insufficient balance' : 'Paying from your wallet'} (${balance ?? '0.00'} available)
         </div>
 
         <DialogFooter className="mt-4">
@@ -99,7 +88,7 @@ export function SubscriptionConfirmDialog({
                 Processing...
               </>
             ) : (
-              'Upgrade Now'
+              'Subscribe Now'
             )}
           </Button>
         </DialogFooter>

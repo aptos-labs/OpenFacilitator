@@ -963,6 +963,58 @@ router.delete('/facilitators/:id/domain', requireAuth, async (req: Request, res:
 });
 
 /**
+ * GET /api/admin/facilitators/:id/subdomain/status - Check subdomain DNS status
+ */
+router.get('/facilitators/:id/subdomain/status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const facilitator = getFacilitatorById(req.params.id);
+    if (!facilitator) {
+      res.status(404).json({ error: 'Facilitator not found' });
+      return;
+    }
+
+    const subdomainFull = `${facilitator.subdomain}.openfacilitator.io`;
+
+    if (!isRailwayConfigured()) {
+      // Railway not configured - subdomains won't work without it
+      res.json({
+        domain: subdomainFull,
+        status: 'unconfigured',
+        railwayConfigured: false,
+        message: 'Railway integration not configured. Subdomain routing is not available.',
+      });
+      return;
+    }
+
+    const status = await getDomainStatus(subdomainFull);
+    
+    if (!status) {
+      // Domain not added to Railway yet
+      res.json({
+        domain: subdomainFull,
+        status: 'not_added',
+        railwayConfigured: true,
+        message: 'Subdomain not yet registered with Railway. This happens automatically when the facilitator is created.',
+      });
+      return;
+    }
+
+    res.json({
+      domain: subdomainFull,
+      status: status.status,
+      railwayConfigured: true,
+      dnsRecords: status.dnsRecords,
+      message: status.status === 'active' 
+        ? 'Subdomain is active and ready to use!'
+        : 'DNS propagation in progress. This is managed by the platform administrator.',
+    });
+  } catch (error) {
+    console.error('Get subdomain status error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/admin/facilitators/:id/domain/status - Check domain DNS status
  */
 router.get('/facilitators/:id/domain/status', requireAuth, async (req: Request, res: Response) => {
