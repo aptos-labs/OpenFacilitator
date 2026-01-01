@@ -51,6 +51,39 @@ export function initializeDatabase(dbPath?: string): Database.Database {
     // Table might not exist yet, that's fine
   }
 
+  // Migration: Remove CHECK constraint from subscriptions table (only 'starter' tier now)
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='subscriptions'").get() as { sql: string } | undefined;
+    if (tableInfo && tableInfo.sql && tableInfo.sql.includes('CHECK')) {
+      console.log('🔄 Migrating subscriptions table (removing CHECK constraint)...');
+      
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS subscriptions_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+          tier TEXT NOT NULL DEFAULT 'starter',
+          amount INTEGER NOT NULL,
+          tx_hash TEXT,
+          started_at TEXT NOT NULL DEFAULT (datetime('now')),
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        
+        INSERT INTO subscriptions_new SELECT * FROM subscriptions;
+        DROP TABLE subscriptions;
+        ALTER TABLE subscriptions_new RENAME TO subscriptions;
+        
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_expires ON subscriptions(expires_at);
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_tx_hash ON subscriptions(tx_hash);
+      `);
+      
+      console.log('✅ Migrated subscriptions table');
+    }
+  } catch (e) {
+    // Table might not exist yet
+  }
+
   // Create tables
   db.exec(`
     -- Facilitators table
@@ -182,7 +215,7 @@ export function initializeDatabase(dbPath?: string): Database.Database {
     CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
-      tier TEXT NOT NULL CHECK (tier IN ('basic', 'pro')),
+      tier TEXT NOT NULL DEFAULT 'starter',
       amount INTEGER NOT NULL,
       tx_hash TEXT,
       started_at TEXT NOT NULL DEFAULT (datetime('now')),

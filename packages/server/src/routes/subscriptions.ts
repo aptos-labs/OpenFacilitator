@@ -150,8 +150,12 @@ router.post('/activate', verifyWebhookSecret, async (req: Request, res: Response
       expires: subscription.expires_at,
     });
   } catch (error) {
-    console.error('Activate subscription error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[Activate Webhook] Error:', error);
+    console.error('[Activate Webhook] Request body:', JSON.stringify(req.body));
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
