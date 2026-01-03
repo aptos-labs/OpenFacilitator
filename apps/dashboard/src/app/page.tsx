@@ -195,12 +195,14 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-center mb-4">
             Or just use ours
           </h2>
-          <p className="text-muted-foreground text-center mb-12 max-w-xl mx-auto">
-            Completely free. Start accepting payments in seconds.
+          <p className="text-muted-foreground text-center text-balance mb-12 max-w-xl mx-auto">
+            Completely free. Start accepting payments in&nbsp;seconds.
           </p>
 
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 font-mono text-lg break-all">
-            <span className="text-gray-900 dark:text-gray-100 flex-1">{FREE_ENDPOINT}</span>
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+            <span className="text-gray-900 dark:text-gray-100 flex-1 font-mono text-sm sm:text-lg whitespace-nowrap overflow-hidden text-ellipsis">
+              pay.openfacilitator.io
+            </span>
             <CopyButton text={FREE_ENDPOINT} />
           </div>
 
