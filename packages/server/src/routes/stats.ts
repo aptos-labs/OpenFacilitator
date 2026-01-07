@@ -20,6 +20,7 @@ const SOLANA_FEE_PAYER = 'Hbe1vdFs4EQVVAzcV12muHhr6DEKwrT9roMXGPLxLBLP';
 // Base config
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const BASE_TREASURY = '0xECfb34867Cc542E4B56E4Ed9161Eb704976710ce';
+const BASE_FEE_PAYER = '0x7C766F5fd9Ab3Dc09ACad5ECfacc99c4781efe29';
 
 // Facilitator endpoint
 const FACILITATOR_URL = 'https://pay.openfacilitator.io';
@@ -91,6 +92,9 @@ function getPaymentRequirements() {
       asset: USDC_BASE,
       payTo: BASE_TREASURY,
       description: 'OpenFacilitator Platform Statistics - $5 per request',
+      extra: {
+        feePayer: BASE_FEE_PAYER,
+      },
       outputSchema: OUTPUT_SCHEMA,
     },
   ];
