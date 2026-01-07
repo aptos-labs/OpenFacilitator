@@ -188,11 +188,38 @@ router.get('/stats/price', (_req: Request, res: Response) => {
   });
 });
 
+// OpenFacilitator icon SVG
+const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="hsl(217, 91%, 50%)"/>
+  <g transform="translate(4, 4)" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+    <path d="m9 12 2 2 4-4"/>
+  </g>
+</svg>`;
+
 /**
- * GET /favicon.ico - Serve OpenFacilitator favicon for API domain
+ * GET /.well-known/x402-verification.json - Domain verification for x402jobs
+ */
+router.get('/.well-known/x402-verification.json', (_req: Request, res: Response) => {
+  res.json({ x402: '5529268e5dda' });
+});
+
+/**
+ * GET /favicon.ico - Serve OpenFacilitator icon for API domain
  */
 router.get('/favicon.ico', (_req: Request, res: Response) => {
-  res.redirect('https://openfacilitator.io/favicon.ico');
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(ICON_SVG);
+});
+
+/**
+ * GET /icon.svg - Serve OpenFacilitator icon for API domain
+ */
+router.get('/icon.svg', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(ICON_SVG);
 });
 
 export { router as statsRouter };
