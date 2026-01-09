@@ -15,7 +15,7 @@ const router: IRouter = Router();
  * - POST /api/auth/reset-password - Reset password
  * - And more...
  */
-router.all('/*', (req: Request, res: Response) => {
+router.all('/*path', (req: Request, res: Response) => {
   const auth = getAuth();
   const handler = toNodeHandler(auth);
   return handler(req, res);

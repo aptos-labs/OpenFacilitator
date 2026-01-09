@@ -7,6 +7,7 @@ import { authRouter } from './routes/auth.js';
 import { publicRouter } from './routes/public.js';
 import { subscriptionsRouter } from './routes/subscriptions.js';
 import { statsRouter } from './routes/stats.js';
+import { discoveryRouter } from './routes/discovery.js';
 import { resolveFacilitator } from './middleware/tenant.js';
 
 /**
@@ -75,6 +76,9 @@ export function createServer(): Express {
 
   // Stats API (x402 protected)
   app.use('/', statsRouter);
+
+  // Discovery API (service discovery for x402 resources - Bazaar)
+  app.use('/', discoveryRouter);
 
   // Public free facilitator routes (no auth required)
   app.use('/', publicRouter);
