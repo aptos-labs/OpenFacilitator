@@ -1502,9 +1502,13 @@ const updatePaymentLinkSchema = z.object({
 });
 
 // Helper to build payment link URL based on environment
-function getPaymentLinkUrl(subdomain: string, linkId: string): string {
+function getPaymentLinkUrl(subdomain: string, customDomain: string | null, linkId: string): string {
   if (process.env.NODE_ENV === 'development') {
     return `http://localhost:5002/pay/${linkId}`;
+  }
+  // Use custom domain if available, otherwise use subdomain
+  if (customDomain) {
+    return `https://${customDomain}/pay/${linkId}`;
   }
   return `https://${subdomain}.openfacilitator.io/pay/${linkId}`;
 }
@@ -1537,7 +1541,7 @@ router.get('/facilitators/:id/payment-links', requireAuth, async (req: Request, 
         successRedirectUrl: link.success_redirect_url,
         webhookUrl: link.webhook_url,
         active: link.active === 1,
-        url: getPaymentLinkUrl(facilitator.subdomain, link.id),
+        url: getPaymentLinkUrl(facilitator.subdomain, facilitator.custom_domain, link.id),
         stats: {
           totalPayments: stats.totalPayments,
           successfulPayments: stats.successfulPayments,
@@ -1608,7 +1612,7 @@ router.post('/facilitators/:id/payment-links', requireAuth, async (req: Request,
       successRedirectUrl: link.success_redirect_url,
       webhookUrl: link.webhook_url,
       active: link.active === 1,
-      url: getPaymentLinkUrl(facilitator.subdomain, link.id),
+      url: getPaymentLinkUrl(facilitator.subdomain, facilitator.custom_domain, link.id),
       createdAt: formatSqliteDate(link.created_at),
     });
   } catch (error) {
@@ -1650,7 +1654,7 @@ router.get('/facilitators/:id/payment-links/:linkId', requireAuth, async (req: R
       successRedirectUrl: link.success_redirect_url,
       webhookUrl: link.webhook_url,
       active: link.active === 1,
-      url: getPaymentLinkUrl(facilitator.subdomain, link.id),
+      url: getPaymentLinkUrl(facilitator.subdomain, facilitator.custom_domain, link.id),
       stats,
       payments: payments.map((p) => ({
         id: p.id,
@@ -1730,7 +1734,7 @@ router.patch('/facilitators/:id/payment-links/:linkId', requireAuth, async (req:
       successRedirectUrl: link.success_redirect_url,
       webhookUrl: link.webhook_url,
       active: link.active === 1,
-      url: getPaymentLinkUrl(facilitator.subdomain, link.id),
+      url: getPaymentLinkUrl(facilitator.subdomain, facilitator.custom_domain, link.id),
       createdAt: formatSqliteDate(link.created_at),
       updatedAt: formatSqliteDate(link.updated_at),
     });
