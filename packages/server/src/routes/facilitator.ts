@@ -1412,6 +1412,38 @@ router.get('/pay/:linkId', async (req: Request, res: Response) => {
         connectedAddress = userAddress;
         updateWalletUI(userAddress);
 
+        // Switch to correct network
+        const targetChainId = NETWORK === 'base' ? '0x2105' : '0x14a34'; // 8453 or 84532
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: targetChainId }]
+          });
+        } catch (switchError) {
+          // Chain not added, try to add it
+          if (switchError.code === 4902) {
+            const chainConfig = NETWORK === 'base' ? {
+              chainId: '0x2105',
+              chainName: 'Base',
+              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://mainnet.base.org'],
+              blockExplorerUrls: ['https://basescan.org']
+            } : {
+              chainId: '0x14a34',
+              chainName: 'Base Sepolia',
+              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://sepolia.base.org'],
+              blockExplorerUrls: ['https://sepolia.basescan.org']
+            };
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [chainConfig]
+            });
+          } else {
+            throw switchError;
+          }
+        }
+
         setLoading(true, 'Preparing payment...');
 
         // Get payment requirements
