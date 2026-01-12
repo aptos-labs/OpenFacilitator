@@ -1,15 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Globe, Github, Check, Copy, Zap, Code, Sparkles, ShieldCheck, Loader2, Wallet } from 'lucide-react';
+import { ArrowRight, Globe, Github, Check, Copy, Zap, Code, Sparkles, ShieldCheck, Wallet } from 'lucide-react';
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth/auth-provider';
-import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { SubscriptionConfirmDialog } from '@/components/subscription-confirm-dialog';
-import { SubscriptionSuccessDialog } from '@/components/subscription-success-dialog';
 
 const FREE_ENDPOINT = 'https://pay.openfacilitator.io';
 
@@ -33,103 +30,23 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
-function SubscribeButton({
-  className,
-  isPurchasing,
-  onSubscribe,
-}: {
-  className?: string;
-  isPurchasing: boolean;
-  onSubscribe: () => void;
-}) {
-  const { isAuthenticated } = useAuth();
-
-  if (isAuthenticated) {
-    return (
-      <button
-        onClick={onSubscribe}
-        disabled={isPurchasing}
-        className={`${className} disabled:opacity-50 disabled:cursor-not-allowed`}
-      >
-        {isPurchasing ? (
-          <span className="inline-flex items-center justify-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Processing...
-          </span>
-        ) : (
-          'Get Started'
-        )}
-      </button>
-    );
-  }
-
-  // Not logged in - go to sign in
+function GetStartedButton({ className }: { className?: string }) {
+  // Always go to dashboard - it handles auth redirect and facilitator creation
   return (
-    <Link href="/auth/signin" className={className}>
-      Sign in to subscribe
+    <Link href="/dashboard" className={className}>
+      Get Started
     </Link>
   );
 }
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [successTxHash, setSuccessTxHash] = useState<string | undefined>();
 
   const { data: billingWallet } = useQuery({
     queryKey: ['billingWallet'],
     queryFn: () => api.getBillingWallet(),
     enabled: isAuthenticated,
   });
-
-  const purchaseMutation = useMutation({
-    mutationFn: () => api.purchaseSubscription(),
-    onSuccess: (result) => {
-      if (result.success) {
-        // Show success dialog
-        setSuccessTxHash(result.txHash);
-        setSuccessDialogOpen(true);
-        queryClient.invalidateQueries({ queryKey: ['subscription'] });
-        queryClient.invalidateQueries({ queryKey: ['billingWallet'] });
-      } else if (result.insufficientBalance) {
-        toast({
-          title: 'Insufficient balance',
-          description: `You need $${result.required} USDC but only have $${result.available}. Fund your billing wallet first.`,
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Purchase failed',
-          description: result.error || 'Something went wrong',
-          variant: 'destructive',
-        });
-      }
-      setIsPurchasing(false);
-    },
-    onError: (error) => {
-      toast({
-        title: 'Purchase failed',
-        description: error instanceof Error ? error.message : 'Something went wrong',
-        variant: 'destructive',
-      });
-      setIsPurchasing(false);
-    },
-  });
-
-  // Open confirmation dialog
-  const handleSubscribeClick = () => {
-    setConfirmDialogOpen(true);
-  };
-
-  // Execute purchase after confirmation
-  const handleConfirmPurchase = () => {
-    setIsPurchasing(true);
-    purchaseMutation.mutate();
-  };
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -434,10 +351,8 @@ export default function Home() {
                   Manage your keys
                 </li>
               </ul>
-              <SubscribeButton
+              <GetStartedButton
                 className="block w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-center font-medium hover:bg-primary/90 transition-colors text-sm"
-                isPurchasing={isPurchasing}
-                onSubscribe={handleSubscribeClick}
               />
             </div>
           </div>
@@ -525,24 +440,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-
-      {/* Subscription Confirmation Dialog */}
-      <SubscriptionConfirmDialog
-        open={confirmDialogOpen}
-        onOpenChange={setConfirmDialogOpen}
-        tier="starter"
-        balance={billingWallet?.balance ?? null}
-        isPurchasing={isPurchasing}
-        onConfirm={handleConfirmPurchase}
-      />
-
-      {/* Subscription Success Dialog */}
-      <SubscriptionSuccessDialog
-        open={successDialogOpen}
-        onOpenChange={setSuccessDialogOpen}
-        tier="starter"
-        txHash={successTxHash}
-      />
     </div>
   );
 }
