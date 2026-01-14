@@ -8,6 +8,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY packages/core/package.json ./packages/core/
+COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/server/package.json ./packages/server/
 
 # Install dependencies
@@ -16,6 +17,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY tsconfig.base.json ./
 COPY packages/core ./packages/core
+COPY packages/sdk ./packages/sdk
 COPY packages/server ./packages/server
 
 # Build
@@ -34,6 +36,8 @@ WORKDIR /app
 # Copy built files
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
 COPY --from=builder /app/packages/core/package.json ./packages/core/
+COPY --from=builder /app/packages/sdk/dist ./packages/sdk/dist
+COPY --from=builder /app/packages/sdk/package.json ./packages/sdk/
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
 COPY --from=builder /app/packages/server/package.json ./packages/server/
 
