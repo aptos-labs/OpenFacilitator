@@ -18,16 +18,45 @@ import { getResourceOwnerById } from '../db/resource-owners.js';
 import { getOrCreateRefundConfig } from '../db/refund-configs.js';
 import { decryptRefundPrivateKey, getRefundWalletBalance } from './refund-wallet.js';
 import type { ClaimRecord, RegisteredServerRecord } from '../db/types.js';
-import { executeSolanaSettlement, getSolanaPublicKey } from '@openfacilitator/core';
-import { createWalletClient, createPublicClient, http, parseUnits, type Address } from 'viem';
-import { base } from 'viem/chains';
-import { privateKeyToAccount } from 'viem/accounts';
+import { executeSolanaSettlement, getSolanaPublicKey, executeERC3009Settlement } from '@openfacilitator/core';
+import {
+  createWalletClient,
+  createPublicClient,
+  http,
+  type Address,
+  type Hex,
+  hashTypedData,
+} from 'viem';
+import { base, baseSepolia } from 'viem/chains';
+import { privateKeyToAccount, signTypedData } from 'viem/accounts';
+import { getFacilitatorById } from '../db/facilitators.js';
+import { decryptPrivateKey } from '../utils/crypto.js';
+import { randomBytes } from 'crypto';
 
-// USDC contract addresses and transfer ABI
-const USDC_ADDRESSES: Record<string, Address> = {
-  base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-  'base-sepolia': '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+// USDC contract addresses and chain IDs
+const USDC_CONFIG: Record<string, { address: Address; chainId: number }> = {
+  base: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', chainId: 8453 },
+  'base-sepolia': { address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', chainId: 84532 },
 };
+
+// EIP-712 domain and types for ERC-3009 TransferWithAuthorization
+const ERC3009_DOMAIN = (chainId: number, tokenAddress: Address) => ({
+  name: 'USD Coin',
+  version: '2',
+  chainId,
+  verifyingContract: tokenAddress,
+});
+
+const TRANSFER_WITH_AUTHORIZATION_TYPES = {
+  TransferWithAuthorization: [
+    { name: 'from', type: 'address' },
+    { name: 'to', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'validAfter', type: 'uint256' },
+    { name: 'validBefore', type: 'uint256' },
+    { name: 'nonce', type: 'bytes32' },
+  ],
+} as const;
 
 /**
  * Normalize network identifier to simple format used by refund wallets
@@ -45,18 +74,12 @@ function normalizeNetwork(network: string): string {
   return network;
 }
 
-const TRANSFER_ABI = [
-  {
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    name: 'transfer',
-    outputs: [{ name: '', type: 'bool' }],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-] as const;
+/**
+ * Generate a random 32-byte nonce for ERC-3009
+ */
+function generateNonce(): Hex {
+  return `0x${randomBytes(32).toString('hex')}` as Hex;
+}
 
 /**
  * Check if a network is a Solana network
@@ -163,8 +186,8 @@ export async function executeClaimPayout(claimId: string): Promise<ExecutePayout
   }
 
   // Get refund wallet for this network (using resource_owner_id)
-  const privateKey = decryptRefundPrivateKey(claim.resource_owner_id, claim.network);
-  if (!privateKey) {
+  const refundPrivateKey = decryptRefundPrivateKey(claim.resource_owner_id, claim.network);
+  if (!refundPrivateKey) {
     return { success: false, error: 'Refund wallet not found or unable to decrypt' };
   }
 
@@ -177,14 +200,29 @@ export async function executeClaimPayout(claimId: string): Promise<ExecutePayout
     };
   }
 
+  // Get the resource owner to find the facilitator
+  const resourceOwner = getResourceOwnerById(claim.resource_owner_id);
+  if (!resourceOwner) {
+    return { success: false, error: 'Resource owner not found' };
+  }
+
   try {
     let transactionHash: string;
 
     if (isSolanaNetwork(claim.network)) {
-      // Solana payout - use direct SPL token transfer
-      const result = await executeSolanaTransfer({
+      // Get facilitator for gas payment (gasless Solana transfer)
+      const facilitator = getFacilitatorById(resourceOwner.facilitator_id);
+      if (!facilitator || !facilitator.encrypted_solana_private_key) {
+        return { success: false, error: 'Facilitator Solana wallet not configured - required for gasless refunds' };
+      }
+
+      const facilitatorSolanaKey = decryptPrivateKey(facilitator.encrypted_solana_private_key);
+
+      // Solana payout - gasless SPL token transfer (facilitator pays fees)
+      const result = await executeGaslessSolanaTransfer({
         network: claim.network as 'solana' | 'solana-devnet',
-        privateKey,
+        refundPrivateKey,
+        facilitatorPrivateKey: facilitatorSolanaKey,
         recipient: claim.user_wallet,
         amount: claim.amount,
         asset: claim.asset,
@@ -196,10 +234,19 @@ export async function executeClaimPayout(claimId: string): Promise<ExecutePayout
 
       transactionHash = result.transactionHash!;
     } else {
-      // EVM payout - use standard ERC20 transfer
-      const result = await executeEVMTransfer({
+      // Get facilitator for gas payment (ERC-3009 gasless transfer)
+      const facilitator = getFacilitatorById(resourceOwner.facilitator_id);
+      if (!facilitator || !facilitator.encrypted_private_key) {
+        return { success: false, error: 'Facilitator EVM wallet not configured - required for gasless refunds' };
+      }
+
+      const facilitatorPrivateKey = decryptPrivateKey(facilitator.encrypted_private_key);
+
+      // EVM payout - use gasless ERC-3009 transfer
+      const result = await executeGaslessEVMRefund({
         network: claim.network,
-        privateKey,
+        refundPrivateKey,
+        facilitatorPrivateKey: facilitatorPrivateKey as Hex,
         recipient: claim.user_wallet as Address,
         amount: claim.amount,
       });
@@ -225,11 +272,13 @@ export async function executeClaimPayout(claimId: string): Promise<ExecutePayout
 }
 
 /**
- * Execute a Solana SPL token transfer
+ * Execute a gasless Solana SPL token transfer
+ * The refund wallet signs the transfer, facilitator pays the transaction fees
  */
-async function executeSolanaTransfer(params: {
+async function executeGaslessSolanaTransfer(params: {
   network: 'solana' | 'solana-devnet';
-  privateKey: string;
+  refundPrivateKey: string;
+  facilitatorPrivateKey: string;
   recipient: string;
   amount: string;
   asset: string;
@@ -240,7 +289,6 @@ async function executeSolanaTransfer(params: {
     Keypair,
     PublicKey,
     Transaction,
-    SystemProgram,
   } = await import('@solana/web3.js');
   const {
     getAssociatedTokenAddress,
@@ -255,26 +303,36 @@ async function executeSolanaTransfer(params: {
     : (process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
 
   const connection = new Connection(rpcUrl, 'confirmed');
-  const senderKeypair = Keypair.fromSecretKey(bs58.default.decode(params.privateKey));
+  const refundKeypair = Keypair.fromSecretKey(bs58.default.decode(params.refundPrivateKey));
+  const facilitatorKeypair = Keypair.fromSecretKey(bs58.default.decode(params.facilitatorPrivateKey));
   const recipientPubkey = new PublicKey(params.recipient);
   const mintPubkey = new PublicKey(params.asset);
 
+  console.log('[GaslessSolanaRefund] Creating transfer:', {
+    from: refundKeypair.publicKey.toBase58(),
+    to: params.recipient,
+    amount: params.amount,
+    feePayer: facilitatorKeypair.publicKey.toBase58(),
+  });
+
   try {
     // Get token accounts
-    const senderAta = await getAssociatedTokenAddress(mintPubkey, senderKeypair.publicKey);
+    const senderAta = await getAssociatedTokenAddress(mintPubkey, refundKeypair.publicKey);
     const recipientAta = await getAssociatedTokenAddress(mintPubkey, recipientPubkey);
 
     // Build transaction
     const transaction = new Transaction();
 
-    // Check if recipient ATA exists, if not create it
+    // Check if recipient ATA exists, if not create it (facilitator pays for this too)
     try {
       await getAccount(connection, recipientAta);
     } catch {
       // ATA doesn't exist, add instruction to create it
+      // Facilitator pays for the account creation
+      console.log('[GaslessSolanaRefund] Creating recipient ATA...');
       transaction.add(
         createAssociatedTokenAccountInstruction(
-          senderKeypair.publicKey,
+          facilitatorKeypair.publicKey, // Payer for account creation
           recipientAta,
           recipientPubkey,
           mintPubkey
@@ -282,29 +340,36 @@ async function executeSolanaTransfer(params: {
       );
     }
 
-    // Add transfer instruction
+    // Add transfer instruction (refund wallet is the authority)
     transaction.add(
       createTransferInstruction(
         senderAta,
         recipientAta,
-        senderKeypair.publicKey,
+        refundKeypair.publicKey, // Authority is the refund wallet
         BigInt(params.amount)
       )
     );
 
-    // Get recent blockhash and sign
+    // Get recent blockhash
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
-    transaction.feePayer = senderKeypair.publicKey;
-    transaction.sign(senderKeypair);
+
+    // Facilitator pays the transaction fees
+    transaction.feePayer = facilitatorKeypair.publicKey;
+
+    // Both need to sign: facilitator (for fees) and refund wallet (for transfer authority)
+    transaction.sign(facilitatorKeypair, refundKeypair);
+
+    console.log('[GaslessSolanaRefund] Sending transaction...');
 
     // Send and confirm
     const signature = await connection.sendRawTransaction(transaction.serialize());
     await connection.confirmTransaction(signature, 'confirmed');
 
+    console.log('[GaslessSolanaRefund] Success! TX:', signature);
     return { success: true, transactionHash: signature };
   } catch (error) {
-    console.error('Solana transfer error:', error);
+    console.error('[GaslessSolanaRefund] Error:', error);
     return {
       success: false,
       errorMessage: error instanceof Error ? error.message : 'Unknown error',
@@ -313,46 +378,82 @@ async function executeSolanaTransfer(params: {
 }
 
 /**
- * Execute an EVM ERC20 transfer
+ * Execute a gasless EVM refund using ERC-3009 (transferWithAuthorization)
+ * The refund wallet signs the authorization, facilitator submits and pays gas
  */
-async function executeEVMTransfer(params: {
+async function executeGaslessEVMRefund(params: {
   network: string;
-  privateKey: string;
+  refundPrivateKey: string;
+  facilitatorPrivateKey: Hex;
   recipient: Address;
   amount: string;
 }): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
-  const usdcAddress = USDC_ADDRESSES[params.network];
-  if (!usdcAddress) {
+  const config = USDC_CONFIG[params.network];
+  if (!config) {
     return { success: false, error: `Unsupported network: ${params.network}` };
   }
 
   try {
-    const account = privateKeyToAccount(params.privateKey as `0x${string}`);
+    const refundAccount = privateKeyToAccount(params.refundPrivateKey as Hex);
+    const nonce = generateNonce();
+    const validAfter = 0; // Valid immediately
+    const validBefore = Math.floor(Date.now() / 1000) + 3600; // Valid for 1 hour
 
-    const walletClient = createWalletClient({
-      account,
-      chain: base,
-      transport: http(),
+    console.log('[GaslessRefund] Creating ERC-3009 authorization:', {
+      from: refundAccount.address,
+      to: params.recipient,
+      value: params.amount,
+      nonce,
+      chainId: config.chainId,
     });
 
-    const hash = await walletClient.writeContract({
-      address: usdcAddress,
-      abi: TRANSFER_ABI,
-      functionName: 'transfer',
-      args: [params.recipient, BigInt(params.amount)],
+    // Create the ERC-3009 authorization message
+    const domain = ERC3009_DOMAIN(config.chainId, config.address);
+    const message = {
+      from: refundAccount.address,
+      to: params.recipient,
+      value: BigInt(params.amount),
+      validAfter: BigInt(validAfter),
+      validBefore: BigInt(validBefore),
+      nonce,
+    };
+
+    // Sign the authorization with the refund wallet
+    const signature = await signTypedData({
+      privateKey: params.refundPrivateKey as Hex,
+      domain,
+      types: TRANSFER_WITH_AUTHORIZATION_TYPES,
+      primaryType: 'TransferWithAuthorization',
+      message,
     });
 
-    // Wait for confirmation
-    const publicClient = createPublicClient({
-      chain: base,
-      transport: http(),
+    console.log('[GaslessRefund] Authorization signed, submitting via facilitator...');
+
+    // Submit using the facilitator's wallet (which pays gas)
+    const result = await executeERC3009Settlement({
+      chainId: config.chainId,
+      tokenAddress: config.address,
+      authorization: {
+        from: refundAccount.address,
+        to: params.recipient,
+        value: params.amount,
+        validAfter,
+        validBefore,
+        nonce,
+      },
+      signature,
+      facilitatorPrivateKey: params.facilitatorPrivateKey,
     });
 
-    await publicClient.waitForTransactionReceipt({ hash });
+    if (!result.success) {
+      console.error('[GaslessRefund] Settlement failed:', result.errorMessage);
+      return { success: false, error: result.errorMessage };
+    }
 
-    return { success: true, transactionHash: hash };
+    console.log('[GaslessRefund] Refund successful! TX:', result.transactionHash);
+    return { success: true, transactionHash: result.transactionHash };
   } catch (error) {
-    console.error('EVM transfer error:', error);
+    console.error('[GaslessRefund] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

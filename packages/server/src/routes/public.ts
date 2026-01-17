@@ -394,67 +394,116 @@ router.get('/free/info', (_req: Request, res: Response) => {
 // DEMO ENDPOINT (for testing refund protection)
 // ============================================
 
+// Demo endpoint configuration
+const DEMO_PRICE = '100000'; // 0.10 USDC (6 decimals)
+const DEMO_RESOURCE = 'https://api.openfacilitator.io/demo/unreliable';
+
+// Solana USDC mint (mainnet)
+const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+
 /**
  * Demo x402 resource that randomly fails ~50% of the time.
  * Used to test refund protection flow.
+ * Supports both Base (EVM) and Solana payments.
  *
  * GET /demo/unreliable - Returns 402 with payment requirements
  * POST /demo/unreliable - Process payment and randomly fail
  */
 router.get('/demo/unreliable', async (_req: Request, res: Response) => {
-  const feePayer = await demoFacilitator.getFeePayer('eip155:8453');
+  // Fetch fee payers for both networks in parallel
+  const [baseFeePayer, solanaFeePayer] = await Promise.all([
+    demoFacilitator.getFeePayer('eip155:8453'),
+    demoFacilitator.getFeePayer('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'),
+  ]);
 
-  const requirements = {
-    scheme: 'exact',
-    network: 'eip155:8453', // CAIP-2 Base mainnet
-    maxAmountRequired: '100000', // 0.10 USDC
-    asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    payTo: process.env.TREASURY_BASE!,
-    resource: 'https://api.openfacilitator.io/demo/unreliable',
-    description: 'Demo endpoint that randomly fails ~50% of the time (for testing refund protection)',
-    extra: feePayer ? { feePayer } : undefined,
-  };
+  const accepts = [];
+
+  // Add Base (EVM) payment option
+  if (process.env.TREASURY_BASE) {
+    accepts.push({
+      scheme: 'exact',
+      network: 'eip155:8453', // CAIP-2 Base mainnet
+      maxAmountRequired: DEMO_PRICE,
+      asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      payTo: process.env.TREASURY_BASE,
+      resource: DEMO_RESOURCE,
+      description: 'Demo endpoint - Base USDC ($0.10)',
+      extra: baseFeePayer ? { feePayer: baseFeePayer } : undefined,
+    });
+  }
+
+  // Add Solana payment option
+  if (process.env.TREASURY_SOLANA) {
+    accepts.push({
+      scheme: 'exact',
+      network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', // CAIP-2 Solana mainnet
+      maxAmountRequired: DEMO_PRICE,
+      asset: SOLANA_USDC_MINT,
+      payTo: process.env.TREASURY_SOLANA,
+      resource: DEMO_RESOURCE,
+      description: 'Demo endpoint - Solana USDC ($0.10)',
+      extra: solanaFeePayer ? { feePayer: solanaFeePayer } : undefined,
+    });
+  }
 
   res.status(402).json({
     x402Version: 2,
-    accepts: [requirements],
+    accepts,
     error: 'Payment Required',
-    message: 'This endpoint requires a $0.10 USDC payment via x402 (base)',
+    message: 'This endpoint requires a $0.10 USDC payment via x402 (Base or Solana)',
   });
 });
 
 router.post('/demo/unreliable', async (req: Request, res: Response) => {
   console.log('[demo/unreliable] POST request received');
   try {
-    // Get feePayer from facilitator
-    const feePayer = await demoFacilitator.getFeePayer('eip155:8453');
-
-    const paymentRequirements = {
-      scheme: 'exact',
-      network: 'eip155:8453',
-      maxAmountRequired: '100000',
-      asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      payTo: process.env.TREASURY_BASE!,
-      resource: 'https://api.openfacilitator.io/demo/unreliable',
-      description: 'Demo endpoint that randomly fails ~50% of the time',
-      extra: feePayer ? { feePayer } : undefined,
-    };
-
     // Get payment from header
     const paymentHeader = req.headers['x-payment'] as string;
     console.log('[demo/unreliable] x-payment header present:', !!paymentHeader);
 
     if (!paymentHeader) {
+      // No payment - return 402 with all accepted payment options
+      const [baseFeePayer, solanaFeePayer] = await Promise.all([
+        demoFacilitator.getFeePayer('eip155:8453'),
+        demoFacilitator.getFeePayer('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'),
+      ]);
+
+      const accepts = [];
+      if (process.env.TREASURY_BASE) {
+        accepts.push({
+          scheme: 'exact',
+          network: 'eip155:8453',
+          maxAmountRequired: DEMO_PRICE,
+          asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+          payTo: process.env.TREASURY_BASE,
+          resource: DEMO_RESOURCE,
+          description: 'Demo endpoint - Base USDC ($0.10)',
+          extra: baseFeePayer ? { feePayer: baseFeePayer } : undefined,
+        });
+      }
+      if (process.env.TREASURY_SOLANA) {
+        accepts.push({
+          scheme: 'exact',
+          network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+          maxAmountRequired: DEMO_PRICE,
+          asset: SOLANA_USDC_MINT,
+          payTo: process.env.TREASURY_SOLANA,
+          resource: DEMO_RESOURCE,
+          description: 'Demo endpoint - Solana USDC ($0.10)',
+          extra: solanaFeePayer ? { feePayer: solanaFeePayer } : undefined,
+        });
+      }
+
       res.status(402).json({
         x402Version: 2,
-        accepts: [paymentRequirements],
+        accepts,
         error: 'Payment Required',
-        message: 'This endpoint requires a $0.10 USDC payment via x402 (base)',
+        message: 'This endpoint requires a $0.10 USDC payment via x402 (Base or Solana)',
       });
       return;
     }
 
-    // Decode payment payload
+    // Decode payment payload to detect network
     let paymentPayload: PaymentPayload;
     try {
       const decoded = Buffer.from(paymentHeader, 'base64').toString('utf-8');
@@ -464,8 +513,46 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
       return;
     }
 
+    // Detect network from payload
+    const payloadNetwork = (paymentPayload as { network?: string }).network;
+    const isSolanaPayment = payloadNetwork?.startsWith('solana:') ||
+                            payloadNetwork === 'solana' ||
+                            // Check for Solana-specific payload structure
+                            !!(paymentPayload as { payload?: { transaction?: string } }).payload?.transaction;
+
+    console.log('[demo/unreliable] Detected network:', isSolanaPayment ? 'Solana' : 'Base');
+
+    // Build payment requirements based on detected network
+    let paymentRequirements: PaymentRequirements;
+
+    if (isSolanaPayment) {
+      const feePayer = await demoFacilitator.getFeePayer('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp');
+      paymentRequirements = {
+        scheme: 'exact',
+        network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+        maxAmountRequired: DEMO_PRICE,
+        asset: SOLANA_USDC_MINT,
+        payTo: process.env.TREASURY_SOLANA!,
+        resource: DEMO_RESOURCE,
+        description: 'Demo endpoint - Solana USDC ($0.10)',
+        extra: feePayer ? { feePayer } : undefined,
+      } as PaymentRequirements;
+    } else {
+      const feePayer = await demoFacilitator.getFeePayer('eip155:8453');
+      paymentRequirements = {
+        scheme: 'exact',
+        network: 'eip155:8453',
+        maxAmountRequired: DEMO_PRICE,
+        asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        payTo: process.env.TREASURY_BASE!,
+        resource: DEMO_RESOURCE,
+        description: 'Demo endpoint - Base USDC ($0.10)',
+        extra: feePayer ? { feePayer } : undefined,
+      } as PaymentRequirements;
+    }
+
     // Verify payment
-    const verifyResult = await demoFacilitator.verify(paymentPayload, paymentRequirements as PaymentRequirements);
+    const verifyResult = await demoFacilitator.verify(paymentPayload, paymentRequirements);
 
     if (!verifyResult.isValid) {
       res.status(402).json({
@@ -477,7 +564,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
     }
 
     // Settle payment
-    const settleResult = await demoFacilitator.settle(paymentPayload, paymentRequirements as PaymentRequirements);
+    const settleResult = await demoFacilitator.settle(paymentPayload, paymentRequirements);
 
     if (!settleResult.success) {
       res.status(500).json({
@@ -501,6 +588,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
       console.log('[demo/unreliable] API key configured:', !!demoApiKey);
       console.log('[demo/unreliable] Transaction:', settleResult.transaction);
       console.log('[demo/unreliable] Payer:', settleResult.payer);
+      console.log('[demo/unreliable] Network:', paymentRequirements.network);
 
       if (demoApiKey && settleResult.transaction && settleResult.payer) {
         const claimResult = await reportFailure({
@@ -541,6 +629,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
       message: 'You got lucky! The unreliable endpoint succeeded this time.',
       transactionHash: settleResult.transaction,
       payer: settleResult.payer,
+      network: paymentRequirements.network,
     });
   } catch (error) {
     console.error('Demo unreliable endpoint error:', error);
