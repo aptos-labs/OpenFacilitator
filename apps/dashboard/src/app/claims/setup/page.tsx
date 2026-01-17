@@ -142,6 +142,8 @@ function ClaimsSetupContent() {
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isAddServerOpen, setIsAddServerOpen] = useState(false);
+  const [isEditServerOpen, setIsEditServerOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<RegisteredServer | null>(null);
   const [serverUrl, setServerUrl] = useState('');
   const [serverName, setServerName] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -338,6 +340,32 @@ function ClaimsSetupContent() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to regenerate API key');
     }
+  };
+
+  // Update server
+  const updateServer = async () => {
+    if (!editingServer) return;
+    try {
+      await apiCall(`/api/resource-owners/${resourceOwner!.id}/servers/${editingServer.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: serverName || null, url: serverUrl }),
+      });
+      setIsEditServerOpen(false);
+      setEditingServer(null);
+      setServerName('');
+      setServerUrl('');
+      loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update API key');
+    }
+  };
+
+  // Open edit dialog
+  const openEditDialog = (server: RegisteredServer) => {
+    setEditingServer(server);
+    setServerName(server.name || '');
+    setServerUrl(server.url || '');
+    setIsEditServerOpen(true);
   };
 
   // Approve claim
@@ -823,6 +851,10 @@ function ClaimsSetupContent() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(server)}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => regenerateApiKey(server.id)}>
                               <RefreshCw className="h-4 w-4 mr-2" />
                               Regenerate Key
@@ -1192,6 +1224,58 @@ async function handleRequest(paymentPayload, requirements) {
               </Button>
               <Button onClick={registerServer} disabled={!serverName && !serverUrl}>
                 Create API Key
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit API Key Dialog */}
+        <Dialog open={isEditServerOpen} onOpenChange={(open) => {
+          setIsEditServerOpen(open);
+          if (!open) {
+            setEditingServer(null);
+            setServerName('');
+            setServerUrl('');
+          }
+        }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Edit API Key</DialogTitle>
+              <DialogDescription>
+                Update the label or URL for this API key.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="editServerName">Label</Label>
+                <Input
+                  id="editServerName"
+                  value={serverName}
+                  onChange={(e) => setServerName(e.target.value)}
+                  placeholder="Production API"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="editServerUrl">Server URL (optional)</Label>
+                <Input
+                  id="editServerUrl"
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  placeholder="https://api.example.com"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setIsEditServerOpen(false);
+                setEditingServer(null);
+                setServerName('');
+                setServerUrl('');
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={updateServer}>
+                Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>

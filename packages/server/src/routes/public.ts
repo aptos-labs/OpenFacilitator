@@ -11,7 +11,7 @@ import { getClaimableByUserWallet, getClaimsByUserWallet, getClaimById, getClaim
 import { getFacilitatorById, getFacilitatorByDomainOrSubdomain } from '../db/facilitators.js';
 import { getOrCreateResourceOwner, getResourceOwnerById, getResourceOwnerByUserId } from '../db/resource-owners.js';
 import { getRefundWalletsByResourceOwner, getRefundWallet, hasRefundWallet } from '../db/refund-wallets.js';
-import { createRegisteredServer, getRegisteredServersByResourceOwner, deleteRegisteredServer, regenerateServerApiKey, getRegisteredServerById } from '../db/registered-servers.js';
+import { createRegisteredServer, getRegisteredServersByResourceOwner, deleteRegisteredServer, regenerateServerApiKey, getRegisteredServerById, updateRegisteredServer } from '../db/registered-servers.js';
 import { getOrCreateRefundConfig } from '../db/refund-configs.js';
 import { reportFailure, executeClaimPayout, approveClaim, rejectClaim } from '../services/claims.js';
 import { generateRefundWallet, getRefundWalletBalances, deleteRefundWallet, SUPPORTED_REFUND_NETWORKS } from '../services/refund-wallet.js';
@@ -1111,6 +1111,47 @@ router.delete('/api/resource-owners/:resourceOwnerId/servers/:serverId', require
     res.json({ success: true });
   } catch (error) {
     console.error('Delete server error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PATCH /api/resource-owners/:resourceOwnerId/servers/:serverId - Update server/API key details
+ */
+router.patch('/api/resource-owners/:resourceOwnerId/servers/:serverId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const access = verifyResourceOwnerAccess(req, res);
+    if (!access) return;
+
+    const { serverId } = req.params;
+    const { name, url } = req.body;
+
+    // Verify server belongs to this resource owner
+    const server = getRegisteredServerById(serverId);
+    if (!server || server.resource_owner_id !== access.resourceOwnerId) {
+      res.status(404).json({ error: 'API key not found' });
+      return;
+    }
+
+    const updated = updateRegisteredServer(serverId, {
+      name: name !== undefined ? name : undefined,
+      url: url !== undefined ? url : undefined,
+    });
+
+    if (!updated) {
+      res.status(500).json({ error: 'Failed to update API key' });
+      return;
+    }
+
+    res.json({
+      id: updated.id,
+      url: updated.url,
+      name: updated.name,
+      active: updated.active === 1,
+      createdAt: updated.created_at,
+    });
+  } catch (error) {
+    console.error('Update server error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
