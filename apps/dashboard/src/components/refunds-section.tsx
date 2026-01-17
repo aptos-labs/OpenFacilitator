@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Loader2,
@@ -12,11 +12,17 @@ import {
   Clock,
   ExternalLink,
   Info,
+  Shield,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -24,8 +30,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { api, type Facilitator, type ResourceOwner, type ResourceOwnerDetail } from '@/lib/api';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { api, type Facilitator, type ResourceOwner, type ResourceOwnerDetail, type MyResourceOwner } from '@/lib/api';
 import { cn, formatAddress } from '@/lib/utils';
+import {
+  RefundWallets,
+  RegisteredServers,
+  SDKIntegration,
+  ClaimsList,
+  type RefundWallet,
+  type RegisteredServer,
+  type Claim,
+  type ClaimStats,
+} from '@/components/resource-owner';
 
 interface RefundsSectionProps {
   facilitatorId: string;
@@ -35,6 +56,17 @@ interface RefundsSectionProps {
 export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionProps) {
   const queryClient = useQueryClient();
   const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showThirdPartyOwners, setShowThirdPartyOwners] = useState(false);
+
+  // Registration form state
+  const [regName, setRegName] = useState('');
+  const [regRefundAddress, setRegRefundAddress] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+
+  // Use domain for API calls and URLs (prefer customDomain over subdomain)
+  const facilitatorIdentifier = facilitator.customDomain || facilitator.subdomain;
 
   // Queries
   const { data: configData, isLoading: configLoading } = useQuery({
@@ -50,12 +82,39 @@ export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionPro
   const { data: resourceOwnersData, isLoading: ownersLoading } = useQuery({
     queryKey: ['resourceOwners', facilitatorId],
     queryFn: () => api.getResourceOwners(facilitatorId),
+    enabled: configData?.enabled,
   });
 
   const { data: ownerDetail, isLoading: detailLoading } = useQuery({
     queryKey: ['resourceOwner', facilitatorId, selectedOwner],
     queryFn: () => selectedOwner ? api.getResourceOwner(facilitatorId, selectedOwner) : null,
     enabled: !!selectedOwner,
+  });
+
+  // Current user's resource owner status
+  const { data: myResourceOwner, isLoading: myResourceOwnerLoading } = useQuery({
+    queryKey: ['myResourceOwner', facilitatorIdentifier],
+    queryFn: () => api.getMyResourceOwner(facilitatorIdentifier),
+    enabled: configData?.enabled,
+  });
+
+  // My wallets, servers, and claims
+  const { data: myWalletsData, isLoading: myWalletsLoading } = useQuery({
+    queryKey: ['myWallets', myResourceOwner?.id],
+    queryFn: () => myResourceOwner ? api.getMyWallets(myResourceOwner.id) : null,
+    enabled: !!myResourceOwner,
+  });
+
+  const { data: myServersData, isLoading: myServersLoading } = useQuery({
+    queryKey: ['myServers', myResourceOwner?.id],
+    queryFn: () => myResourceOwner ? api.getMyServers(myResourceOwner.id) : null,
+    enabled: !!myResourceOwner,
+  });
+
+  const { data: myClaimsData, isLoading: myClaimsLoading } = useQuery({
+    queryKey: ['myClaims', myResourceOwner?.id, statusFilter],
+    queryFn: () => myResourceOwner ? api.getMyClaims(myResourceOwner.id, statusFilter) : null,
+    enabled: !!myResourceOwner,
   });
 
   // Mutations
@@ -66,7 +125,83 @@ export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionPro
     },
   });
 
-  const setupUrl = `${window.location.origin}/claims/setup?facilitator=${facilitator.subdomain}`;
+  const setupUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/claims/setup?facilitator=${facilitatorIdentifier}`;
+
+  // Registration handler
+  const handleRegister = async () => {
+    setRegistrationError(null);
+    setIsRegistering(true);
+    try {
+      await api.registerAsResourceOwner(facilitatorIdentifier, {
+        name: regName || undefined,
+        refundAddress: regRefundAddress || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ['myResourceOwner', facilitatorIdentifier] });
+      setRegName('');
+      setRegRefundAddress('');
+    } catch (err) {
+      setRegistrationError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  // Wallet handlers
+  const handleGenerateWallet = useCallback(async (network: string) => {
+    if (!myResourceOwner) return;
+    await api.generateMyWallet(myResourceOwner.id, network);
+    queryClient.invalidateQueries({ queryKey: ['myWallets', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
+  const handleDeleteWallet = useCallback(async (network: string) => {
+    if (!myResourceOwner) return;
+    await api.deleteMyWallet(myResourceOwner.id, network);
+    queryClient.invalidateQueries({ queryKey: ['myWallets', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
+  // Server handlers
+  const handleRegisterServer = useCallback(async (url: string, name?: string) => {
+    if (!myResourceOwner) return { apiKey: undefined };
+    const result = await api.registerMyServer(myResourceOwner.id, { url, name });
+    queryClient.invalidateQueries({ queryKey: ['myServers', myResourceOwner.id] });
+    return { apiKey: result.apiKey };
+  }, [myResourceOwner, queryClient]);
+
+  const handleDeleteServer = useCallback(async (serverId: string) => {
+    if (!myResourceOwner) return;
+    await api.deleteMyServer(myResourceOwner.id, serverId);
+    queryClient.invalidateQueries({ queryKey: ['myServers', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
+  const handleRegenerateApiKey = useCallback(async (serverId: string) => {
+    if (!myResourceOwner) return { apiKey: undefined };
+    const result = await api.regenerateMyServerApiKey(myResourceOwner.id, serverId);
+    return { apiKey: result.apiKey };
+  }, [myResourceOwner]);
+
+  // Claim handlers
+  const handleApproveClaim = useCallback(async (claimId: string) => {
+    if (!myResourceOwner) return;
+    await api.approveMyClaim(myResourceOwner.id, claimId);
+    queryClient.invalidateQueries({ queryKey: ['myClaims', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
+  const handleRejectClaim = useCallback(async (claimId: string) => {
+    if (!myResourceOwner) return;
+    await api.rejectMyClaim(myResourceOwner.id, claimId);
+    queryClient.invalidateQueries({ queryKey: ['myClaims', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
+  const handleExecutePayout = useCallback(async (claimId: string) => {
+    if (!myResourceOwner) return;
+    await api.executeMyClaimPayout(myResourceOwner.id, claimId);
+    queryClient.invalidateQueries({ queryKey: ['myClaims', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
+  // Count third-party resource owners (excluding current user)
+  const thirdPartyOwners = resourceOwnersData?.resourceOwners.filter(
+    (owner) => owner.id !== myResourceOwner?.id
+  ) || [];
 
   return (
     <div className="space-y-6">
@@ -77,7 +212,7 @@ export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionPro
             <div>
               <CardTitle>Refund Protection</CardTitle>
               <CardDescription>
-                Enable automatic refund protection for third-party resource owners using your facilitator.
+                Enable automatic refund protection for your facilitator.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -92,209 +227,273 @@ export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionPro
             </div>
           </div>
         </CardHeader>
-        {configData?.enabled && (
-          <CardContent className="pt-0">
-            <div className="flex flex-col sm:flex-row gap-4">
-              {/* Setup your own refunds */}
-              <div className="flex-1 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                <div className="flex items-start gap-3">
-                  <Wallet className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="space-y-3 flex-1">
-                    <div>
-                      <p className="text-sm font-medium">Set Up Your Refund Protection</p>
-                      <p className="text-xs text-muted-foreground">
-                        Configure refund wallets and register servers for your own resources.
-                      </p>
-                    </div>
-                    <Button asChild size="sm">
-                      <a href={setupUrl} target="_blank" rel="noopener noreferrer">
-                        Open Setup <ExternalLink className="ml-2 h-3 w-3" />
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Share with others */}
-              <div className="flex-1 p-4 rounded-lg bg-muted/50 border">
-                <div className="flex items-start gap-3">
-                  <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Share with Resource Owners</p>
-                    <p className="text-xs text-muted-foreground">
-                      Third-party API owners can set up their own refund protection using this link:
-                    </p>
-                    <code className="text-xs bg-background px-2 py-1 rounded border block overflow-x-auto">
-                      {setupUrl}
-                    </code>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        )}
       </Card>
 
-      {/* Overview Stats */}
+      {/* Only show content if refunds are enabled */}
       {configData?.enabled && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <>
+          {/* My Refund Protection Section */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Users className="h-5 w-5 text-blue-500" />
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                My Refund Protection
+              </CardTitle>
+              <CardDescription>
+                Configure refund wallets and servers for your own resources on this facilitator.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {myResourceOwnerLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{overviewData?.resourceOwners || 0}</p>
-                  <p className="text-sm text-muted-foreground">Resource Owners</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <Wallet className="h-5 w-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">${overviewData?.totalWalletBalance || '0.00'}</p>
-                  <p className="text-sm text-muted-foreground">Total Balance</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <Server className="h-5 w-5 text-purple-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{overviewData?.totalServers || 0}</p>
-                  <p className="text-sm text-muted-foreground">Active Servers</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="p-2 rounded-lg bg-orange-500/10">
-                  <ReceiptText className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{overviewData?.claims?.pending || 0}</p>
-                  <p className="text-sm text-muted-foreground">Pending Claims</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+              ) : !myResourceOwner ? (
+                /* Inline Registration Form */
+                <div className="max-w-md space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Register to set up refund wallets and servers for your own resources.
+                  </p>
 
-      {/* Claims Overview */}
-      {configData?.enabled && overviewData?.claims && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Claims Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-5">
-              <div className="text-center p-4 rounded-lg bg-muted/50">
-                <p className="text-2xl font-bold">{overviewData.claims.total}</p>
-                <p className="text-sm text-muted-foreground">Total</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-yellow-500/10">
-                <p className="text-2xl font-bold text-yellow-600">{overviewData.claims.pending}</p>
-                <p className="text-sm text-muted-foreground">Pending</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-blue-500/10">
-                <p className="text-2xl font-bold text-blue-600">{overviewData.claims.approved}</p>
-                <p className="text-sm text-muted-foreground">Approved</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-green-500/10">
-                <p className="text-2xl font-bold text-green-600">{overviewData.claims.paid}</p>
-                <p className="text-sm text-muted-foreground">Paid</p>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-green-500/10">
-                <p className="text-2xl font-bold text-green-600">${overviewData.claims.totalPaidAmount}</p>
-                <p className="text-sm text-muted-foreground">Total Paid</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  {registrationError && (
+                    <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                      {registrationError}
+                    </div>
+                  )}
 
-      {/* Resource Owners List */}
-      {configData?.enabled && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Resource Owners
-                </CardTitle>
-                <CardDescription>
-                  Third-party API owners who have registered for refund protection.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {ownersLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : !resourceOwnersData?.resourceOwners.length ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No resource owners registered yet</p>
-                <p className="text-sm">Share the setup URL with API owners who want refund protection.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {resourceOwnersData.resourceOwners.map((owner) => (
-                  <div
-                    key={owner.id}
-                    className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
-                    onClick={() => setSelectedOwner(owner.id)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{owner.name || 'Unnamed'}</span>
-                        {owner.refundAddress && (
-                          <code className="text-xs text-muted-foreground font-mono">
-                            {formatAddress(owner.refundAddress)}
-                          </code>
-                        )}
-                      </div>
-                      <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Wallet className="h-3 w-3" /> {owner.stats.wallets} wallets
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Server className="h-3 w-3" /> {owner.stats.servers} servers
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {owner.stats.pendingClaims} pending
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" /> ${owner.stats.totalPaidAmount} paid
-                        </span>
+                  <div className="grid gap-2">
+                    <Label htmlFor="regName">Display Name (optional)</Label>
+                    <Input
+                      id="regName"
+                      value={regName}
+                      onChange={(e) => setRegName(e.target.value)}
+                      placeholder="My API Service"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="regRefundAddress">Refund Address (optional)</Label>
+                    <Input
+                      id="regRefundAddress"
+                      value={regRefundAddress}
+                      onChange={(e) => setRegRefundAddress(e.target.value)}
+                      placeholder="0x..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      A wallet address where you can receive refunds.
+                    </p>
+                  </div>
+
+                  <Button onClick={handleRegister} disabled={isRegistering}>
+                    {isRegistering ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                    )}
+                    Set Up My Refund Protection
+                  </Button>
+                </div>
+              ) : (
+                /* Inline Resource Owner Dashboard */
+                <div className="space-y-6">
+                  {/* Wallets */}
+                  {myWalletsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <RefundWallets
+                      wallets={myWalletsData?.wallets || []}
+                      supportedNetworks={myWalletsData?.supportedNetworks || []}
+                      onGenerateWallet={handleGenerateWallet}
+                      onDeleteWallet={handleDeleteWallet}
+                    />
+                  )}
+
+                  {/* Servers */}
+                  {myServersLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <RegisteredServers
+                      servers={myServersData?.servers || []}
+                      onRegisterServer={handleRegisterServer}
+                      onDeleteServer={handleDeleteServer}
+                      onRegenerateApiKey={handleRegenerateApiKey}
+                    />
+                  )}
+
+                  {/* SDK Integration - only show if servers exist */}
+                  {(myServersData?.servers?.length || 0) > 0 && (
+                    <SDKIntegration
+                      facilitator={facilitatorIdentifier}
+                      serverUrl={myServersData?.servers[0]?.url}
+                    />
+                  )}
+
+                  {/* Claims */}
+                  {myClaimsLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <ClaimsList
+                      claims={myClaimsData?.claims || []}
+                      claimStats={myClaimsData?.stats || null}
+                      statusFilter={statusFilter}
+                      onStatusFilterChange={setStatusFilter}
+                      onApproveClaim={handleApproveClaim}
+                      onRejectClaim={handleRejectClaim}
+                      onExecutePayout={handleExecutePayout}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Third-party Resource Owners Section */}
+          <Collapsible open={showThirdPartyOwners} onOpenChange={setShowThirdPartyOwners}>
+            <Card>
+              <CardHeader>
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between cursor-pointer">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Third-Party Resource Owners
+                        <Badge variant="secondary" className="ml-2">
+                          {thirdPartyOwners.length}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Other developers using your facilitator for refund protection.
+                      </CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      {showThirdPartyOwners ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CollapsibleTrigger>
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent className="pt-0 space-y-4">
+                  {/* Share link */}
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <div className="flex items-start gap-3">
+                      <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Share with Resource Owners</p>
+                        <p className="text-xs text-muted-foreground">
+                          Third-party API owners can set up their own refund protection using this link:
+                        </p>
+                        <code className="text-xs bg-background px-2 py-1 rounded border block overflow-x-auto">
+                          {setupUrl}
+                        </code>
                       </div>
                     </div>
-                    <ExternalLink className="h-4 w-4 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+                  {/* Overview Stats */}
+                  {overviewData && (
+                    <div className="grid gap-4 md:grid-cols-4">
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="p-2 rounded-lg bg-blue-500/10">
+                          <Users className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold">{overviewData.resourceOwners}</p>
+                          <p className="text-xs text-muted-foreground">Resource Owners</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="p-2 rounded-lg bg-green-500/10">
+                          <Wallet className="h-4 w-4 text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold">${overviewData.totalWalletBalance}</p>
+                          <p className="text-xs text-muted-foreground">Total Balance</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="p-2 rounded-lg bg-purple-500/10">
+                          <Server className="h-4 w-4 text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold">{overviewData.totalServers}</p>
+                          <p className="text-xs text-muted-foreground">Active Servers</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="p-2 rounded-lg bg-orange-500/10">
+                          <ReceiptText className="h-4 w-4 text-orange-500" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold">{overviewData.claims?.pending || 0}</p>
+                          <p className="text-xs text-muted-foreground">Pending Claims</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Resource Owners List */}
+                  {ownersLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : thirdPartyOwners.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No third-party resource owners registered yet</p>
+                      <p className="text-sm">Share the setup URL with API owners who want refund protection.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {thirdPartyOwners.map((owner) => (
+                        <div
+                          key={owner.id}
+                          className="flex items-center justify-between p-4 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedOwner(owner.id)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{owner.name || 'Unnamed'}</span>
+                              {owner.refundAddress && (
+                                <code className="text-xs text-muted-foreground font-mono">
+                                  {formatAddress(owner.refundAddress)}
+                                </code>
+                              )}
+                            </div>
+                            <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Wallet className="h-3 w-3" /> {owner.stats.wallets} wallets
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Server className="h-3 w-3" /> {owner.stats.servers} servers
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> {owner.stats.pendingClaims} pending
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="h-3 w-3" /> ${owner.stats.totalPaidAmount} paid
+                              </span>
+                            </div>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        </>
       )}
 
       {/* Resource Owner Detail Dialog */}

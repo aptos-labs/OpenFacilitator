@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Navbar } from '@/components/navbar';
+import { CodeBlock } from '@/components/ui/code-block';
 import { formatAddress, cn } from '@/lib/utils';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002';
@@ -502,7 +503,7 @@ function ClaimsSetupContent() {
                   <div className="relative group">
                     <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-popover text-popover-foreground text-xs rounded-md shadow-lg border opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-48 z-50">
-                      A facilitator handles x402 payments on your behalf. Enter the subdomain of the facilitator you&apos;re using.
+                      A facilitator handles x402 payments on your behalf. Enter the domain or subdomain of the facilitator you&apos;re using.
                     </div>
                   </div>
                 </div>
@@ -510,10 +511,10 @@ function ClaimsSetupContent() {
                   id="facilitator"
                   value={facilitator}
                   onChange={(e) => setFacilitator(e.target.value)}
-                  placeholder="e.g., free or my-app"
+                  placeholder="e.g., pay.example.com or my-app"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Enter the facilitator subdomain you want to use for refund protection.
+                  Enter the facilitator domain or subdomain you want to use for refund protection.
                 </p>
               </div>
 
@@ -844,23 +845,7 @@ function ClaimsSetupContent() {
                     <Label className="text-sm text-muted-foreground mb-2 block">
                       Install the SDK
                     </Label>
-                    <div className="relative">
-                      <pre className="bg-muted/50 border rounded-lg p-3 pr-12 overflow-x-auto">
-                        <code className="text-[13px] font-mono">npm install @openfacilitator/sdk</code>
-                      </pre>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 top-1/2 -translate-y-1/2"
-                        onClick={() => handleCopy('npm install @openfacilitator/sdk', 'sdk-install')}
-                      >
-                        {copiedId === 'sdk-install' ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+                    <CodeBlock code="npm install @openfacilitator/sdk" language="bash" />
                   </div>
 
                   {/* Code snippet with framework tabs */}
@@ -894,9 +879,9 @@ function ClaimsSetupContent() {
                         </button>
                       </div>
                     </div>
-                    <div className="relative">
-                      <pre className="bg-muted/50 border rounded-lg p-3 pr-12 overflow-x-auto text-[13px] font-mono leading-relaxed">
-{sdkFramework === 'hono' ? `import { honoPaymentMiddleware } from '@openfacilitator/sdk';
+                    <CodeBlock
+                      code={sdkFramework === 'hono'
+                        ? `import { honoPaymentMiddleware } from '@openfacilitator/sdk';
 
 app.post('/api/resource', honoPaymentMiddleware({
   facilitator: '${facilitator}',
@@ -914,7 +899,8 @@ app.post('/api/resource', honoPaymentMiddleware({
 }), async (c) => {
   // Your handler - failures auto-reported
   return c.json({ success: true });
-});` : `import { createPaymentMiddleware } from '@openfacilitator/sdk';
+});`
+                        : `import { createPaymentMiddleware } from '@openfacilitator/sdk';
 
 const paymentMiddleware = createPaymentMiddleware({
   facilitator: '${facilitator}',
@@ -935,60 +921,8 @@ app.post('/api/resource', paymentMiddleware, async (req, res) => {
   // Your handler - failures auto-reported
   res.json({ success: true });
 });`}
-                      </pre>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 top-2"
-                        onClick={() => handleCopy(sdkFramework === 'hono'
-                          ? `import { honoPaymentMiddleware } from '@openfacilitator/sdk';
-
-app.post('/api/resource', honoPaymentMiddleware({
-  facilitator: '${facilitator}',
-  getRequirements: (c) => ({
-    scheme: 'exact',
-    network: 'base',
-    maxAmountRequired: '1000000',
-    asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    payTo: '0xYourAddress',
-  }),
-  refundProtection: {
-    apiKey: process.env.REFUND_API_KEY,
-    facilitatorUrl: '${servers[0]?.url || 'https://api.x402.jobs'}',
-  },
-}), async (c) => {
-  // Your handler - failures auto-reported
-  return c.json({ success: true });
-});`
-                          : `import { createPaymentMiddleware } from '@openfacilitator/sdk';
-
-const paymentMiddleware = createPaymentMiddleware({
-  facilitator: '${facilitator}',
-  getRequirements: (req) => ({
-    scheme: 'exact',
-    network: 'base',
-    maxAmountRequired: '1000000',
-    asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    payTo: '0xYourAddress',
-  }),
-  refundProtection: {
-    apiKey: process.env.REFUND_API_KEY,
-    facilitatorUrl: '${servers[0]?.url || 'https://api.x402.jobs'}',
-  },
-});
-
-app.post('/api/resource', paymentMiddleware, async (req, res) => {
-  // Your handler - failures auto-reported
-  res.json({ success: true });
-});`, 'sdk-code')}
-                      >
-                        {copiedId === 'sdk-code' ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+                      language="typescript"
+                    />
                   </div>
 
                   {/* Docs link */}

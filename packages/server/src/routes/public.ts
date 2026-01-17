@@ -3,7 +3,7 @@ import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaP
 import { z } from 'zod';
 import { createTransaction, updateTransactionStatus } from '../db/transactions.js';
 import { getClaimableByUserWallet, getClaimsByUserWallet, getClaimById, getClaimsByResourceOwner, getClaimStats } from '../db/claims.js';
-import { getFacilitatorBySubdomain, getFacilitatorById } from '../db/facilitators.js';
+import { getFacilitatorById, getFacilitatorByDomainOrSubdomain } from '../db/facilitators.js';
 import { getOrCreateResourceOwner, getResourceOwnerById, getResourceOwnerByUserId } from '../db/resource-owners.js';
 import { getRefundWalletsByResourceOwner, getRefundWallet, hasRefundWallet } from '../db/refund-wallets.js';
 import { createRegisteredServer, getRegisteredServersByResourceOwner, deleteRegisteredServer, regenerateServerApiKey, getRegisteredServerById } from '../db/registered-servers.js';
@@ -440,7 +440,7 @@ router.get('/api/claims', async (req: Request, res: Response) => {
 
     let facilitatorId: string | undefined;
     if (facilitatorSubdomain) {
-      const facilitator = getFacilitatorBySubdomain(facilitatorSubdomain);
+      const facilitator = getFacilitatorByDomainOrSubdomain(facilitatorSubdomain);
       if (!facilitator) {
         res.status(404).json({ error: 'Facilitator not found' });
         return;
@@ -484,7 +484,7 @@ router.get('/api/claims/history', async (req: Request, res: Response) => {
 
     let facilitatorId: string | undefined;
     if (facilitatorSubdomain) {
-      const facilitator = getFacilitatorBySubdomain(facilitatorSubdomain);
+      const facilitator = getFacilitatorByDomainOrSubdomain(facilitatorSubdomain);
       if (!facilitator) {
         res.status(404).json({ error: 'Facilitator not found' });
         return;
@@ -564,18 +564,18 @@ router.post('/api/claims/:id/execute', async (req: Request, res: Response) => {
 
 /**
  * POST /api/resource-owners/register - Register as a resource owner
- * Body: { facilitator: string (subdomain), name?: string, refundAddress?: string }
+ * Body: { facilitator: string (domain or subdomain), name?: string, refundAddress?: string }
  * Auth: Session (login required)
  */
 router.post('/api/resource-owners/register', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { facilitator: subdomain, name, refundAddress } = req.body;
-    if (!subdomain) {
-      res.status(400).json({ error: 'Missing facilitator subdomain' });
+    const { facilitator: domainOrSubdomain, name, refundAddress } = req.body;
+    if (!domainOrSubdomain) {
+      res.status(400).json({ error: 'Missing facilitator identifier' });
       return;
     }
 
-    const facilitator = getFacilitatorBySubdomain(subdomain);
+    const facilitator = getFacilitatorByDomainOrSubdomain(domainOrSubdomain);
     if (!facilitator) {
       res.status(404).json({ error: 'Facilitator not found' });
       return;
@@ -612,18 +612,18 @@ router.post('/api/resource-owners/register', requireAuth, async (req: Request, r
 
 /**
  * GET /api/resource-owners/me - Get current resource owner profile
- * Query: facilitator (subdomain)
+ * Query: facilitator (domain or subdomain)
  * Auth: Session (login required)
  */
 router.get('/api/resource-owners/me', requireAuth, async (req: Request, res: Response) => {
   try {
-    const subdomain = req.query.facilitator as string;
-    if (!subdomain) {
+    const facilitatorIdentifier = req.query.facilitator as string;
+    if (!facilitatorIdentifier) {
       res.status(400).json({ error: 'Missing facilitator query parameter' });
       return;
     }
 
-    const facilitator = getFacilitatorBySubdomain(subdomain);
+    const facilitator = getFacilitatorByDomainOrSubdomain(facilitatorIdentifier);
     if (!facilitator) {
       res.status(404).json({ error: 'Facilitator not found' });
       return;

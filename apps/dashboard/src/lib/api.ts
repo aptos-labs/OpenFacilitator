@@ -354,6 +354,7 @@ export interface RegisteredServersResponse {
 
 export interface Claim {
   id: string;
+  serverId: string;
   originalTxHash: string;
   userWallet: string;
   amount: string;
@@ -400,6 +401,15 @@ export interface ResourceOwner {
   name: string | null;
   createdAt: string;
   stats: ResourceOwnerStats;
+}
+
+export interface MyResourceOwner {
+  id: string;
+  facilitatorId: string;
+  userId: string;
+  refundAddress: string | null;
+  name: string | null;
+  createdAt: string;
 }
 
 export interface ResourceOwnersResponse {
@@ -986,6 +996,87 @@ class ApiClient {
 
   async getResourceOwner(facilitatorId: string, resourceOwnerId: string): Promise<ResourceOwnerDetail> {
     return this.request(`/api/admin/facilitators/${facilitatorId}/resource-owners/${resourceOwnerId}`);
+  }
+
+  // Current user's resource owner management
+  async getMyResourceOwner(facilitatorSubdomain: string): Promise<MyResourceOwner | null> {
+    try {
+      return await this.request(`/api/resource-owners/me?facilitator=${facilitatorSubdomain}`);
+    } catch {
+      return null;
+    }
+  }
+
+  async registerAsResourceOwner(facilitatorSubdomain: string, data: { name?: string; refundAddress?: string }): Promise<MyResourceOwner> {
+    return this.request('/api/resource-owners/register', {
+      method: 'POST',
+      body: JSON.stringify({ facilitator: facilitatorSubdomain, ...data }),
+    });
+  }
+
+  async getMyWallets(resourceOwnerId: string): Promise<{ wallets: RefundWallet[]; supportedNetworks: string[] }> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/wallets`);
+  }
+
+  async generateMyWallet(resourceOwnerId: string, network: string): Promise<RefundWallet> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/wallets`, {
+      method: 'POST',
+      body: JSON.stringify({ network }),
+    });
+  }
+
+  async deleteMyWallet(resourceOwnerId: string, network: string): Promise<void> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/wallets/${network}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getMyServers(resourceOwnerId: string): Promise<{ servers: RegisteredServer[] }> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/servers`);
+  }
+
+  async registerMyServer(resourceOwnerId: string, data: { url: string; name?: string }): Promise<{ server: RegisteredServer; apiKey: string }> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/servers`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteMyServer(resourceOwnerId: string, serverId: string): Promise<void> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/servers/${serverId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async regenerateMyServerApiKey(resourceOwnerId: string, serverId: string): Promise<{ apiKey: string }> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/servers/${serverId}/regenerate-key`, {
+      method: 'POST',
+    });
+  }
+
+  async getMyClaims(resourceOwnerId: string, status?: string): Promise<{ claims: Claim[]; stats: ClaimStats }> {
+    const url = status && status !== 'all'
+      ? `/api/resource-owners/${resourceOwnerId}/claims?status=${status}`
+      : `/api/resource-owners/${resourceOwnerId}/claims`;
+    return this.request(url);
+  }
+
+  async approveMyClaim(resourceOwnerId: string, claimId: string): Promise<void> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/claims/${claimId}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectMyClaim(resourceOwnerId: string, claimId: string): Promise<void> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/claims/${claimId}/reject`, {
+      method: 'POST',
+    });
+  }
+
+  async executeMyClaimPayout(resourceOwnerId: string, claimId: string): Promise<void> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/claims/${claimId}/payout`, {
+      method: 'POST',
+    });
   }
 }
 
