@@ -261,7 +261,7 @@ export interface RegisteredServerRecord {
 export interface ClaimRecord {
   id: string;
   resource_owner_id: string;
-  server_id: string;
+  server_id: string | null;      // Null if API key was revoked
   original_tx_hash: string;
   user_wallet: string;
   amount: string;

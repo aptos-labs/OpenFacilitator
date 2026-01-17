@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { runMigrations } from './migrations/index.js';
 
 let db: Database.Database | null = null;
 
@@ -552,7 +553,7 @@ export function initializeDatabase(dbPath?: string): Database.Database {
     CREATE TABLE IF NOT EXISTS claims (
       id TEXT PRIMARY KEY,
       resource_owner_id TEXT NOT NULL REFERENCES resource_owners(id) ON DELETE CASCADE,
-      server_id TEXT NOT NULL REFERENCES registered_servers(id) ON DELETE CASCADE,
+      server_id TEXT REFERENCES registered_servers(id) ON DELETE SET NULL,
       original_tx_hash TEXT NOT NULL UNIQUE,
       user_wallet TEXT NOT NULL,
       amount TEXT NOT NULL,
@@ -576,6 +577,9 @@ export function initializeDatabase(dbPath?: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_claims_user_wallet ON claims(user_wallet);
     CREATE INDEX IF NOT EXISTS idx_claims_status ON claims(status);
   `);
+
+  // Run migrations for schema updates
+  runMigrations(db);
 
   console.log('✅ Database initialized at', databasePath);
 
