@@ -1,6 +1,10 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
 import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2 } from '@openfacilitator/core';
+import { OpenFacilitator, type PaymentPayload, type PaymentRequirements } from '@openfacilitator/sdk';
 import { privateKeyToAccount } from 'viem/accounts';
+
+// SDK client for demo endpoint (uses default facilitator)
+const demoFacilitator = new OpenFacilitator();
 import { z } from 'zod';
 import { createTransaction, updateTransactionStatus } from '../db/transactions.js';
 import { getClaimableByUserWallet, getClaimsByUserWallet, getClaimById, getClaimsByResourceOwner, getClaimStats } from '../db/claims.js';
@@ -397,9 +401,8 @@ router.get('/free/info', (_req: Request, res: Response) => {
  * GET /demo/unreliable - Returns 402 with payment requirements
  * POST /demo/unreliable - Process payment and randomly fail
  */
-router.get('/demo/unreliable', (_req: Request, res: Response) => {
-  const facilitatorData = getFreeFacilitatorConfig();
-  const feePayer = facilitatorData?.evmAddress;
+router.get('/demo/unreliable', async (_req: Request, res: Response) => {
+  const feePayer = await demoFacilitator.getFeePayer('eip155:8453');
 
   const requirements = {
     scheme: 'exact',
@@ -423,46 +426,8 @@ router.get('/demo/unreliable', (_req: Request, res: Response) => {
 router.post('/demo/unreliable', async (req: Request, res: Response) => {
   console.log('[demo/unreliable] POST request received');
   try {
-    const facilitatorData = getFreeFacilitatorConfig();
-    if (!facilitatorData) {
-      console.log('[demo/unreliable] Free facilitator not configured');
-      res.status(503).json({ success: false, error: 'Free facilitator not configured' });
-      return;
-    }
-    console.log('[demo/unreliable] Facilitator config loaded, EVM key present:', !!facilitatorData.evmPrivateKey);
-
-    // Get payment from header
-    const paymentHeader = req.headers['x-payment'] as string;
-    console.log('[demo/unreliable] x-payment header present:', !!paymentHeader);
-    const feePayer = facilitatorData.evmAddress;
-
-    if (!paymentHeader) {
-      res.status(402).json({
-        x402Version: 2,
-        accepts: [{
-          scheme: 'exact',
-          network: 'eip155:8453',
-          maxAmountRequired: '100000',
-          asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-          payTo: process.env.TREASURY_BASE!,
-          resource: 'https://api.openfacilitator.io/demo/unreliable',
-          description: 'Demo endpoint that randomly fails ~50% of the time',
-          extra: feePayer ? { feePayer } : undefined,
-        }],
-        error: 'Payment Required',
-        message: 'This endpoint requires a $0.10 USDC payment via x402 (base)',
-      });
-      return;
-    }
-
-    // Parse payment payload
-    let paymentPayload: string;
-    try {
-      paymentPayload = paymentHeader;
-    } catch {
-      res.status(400).json({ success: false, error: 'Invalid payment header' });
-      return;
-    }
+    // Get feePayer from facilitator
+    const feePayer = await demoFacilitator.getFeePayer('eip155:8453');
 
     const paymentRequirements = {
       scheme: 'exact',
@@ -471,11 +436,36 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
       asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       payTo: process.env.TREASURY_BASE!,
       resource: 'https://api.openfacilitator.io/demo/unreliable',
+      description: 'Demo endpoint that randomly fails ~50% of the time',
+      extra: feePayer ? { feePayer } : undefined,
     };
 
+    // Get payment from header
+    const paymentHeader = req.headers['x-payment'] as string;
+    console.log('[demo/unreliable] x-payment header present:', !!paymentHeader);
+
+    if (!paymentHeader) {
+      res.status(402).json({
+        x402Version: 2,
+        accepts: [paymentRequirements],
+        error: 'Payment Required',
+        message: 'This endpoint requires a $0.10 USDC payment via x402 (base)',
+      });
+      return;
+    }
+
+    // Decode payment payload
+    let paymentPayload: PaymentPayload;
+    try {
+      const decoded = Buffer.from(paymentHeader, 'base64').toString('utf-8');
+      paymentPayload = JSON.parse(decoded);
+    } catch {
+      res.status(400).json({ success: false, error: 'Invalid payment header' });
+      return;
+    }
+
     // Verify payment
-    const facilitator = createFacilitator(facilitatorData.config);
-    const verifyResult = await facilitator.verify(paymentPayload, paymentRequirements);
+    const verifyResult = await demoFacilitator.verify(paymentPayload, paymentRequirements as PaymentRequirements);
 
     if (!verifyResult.isValid) {
       res.status(402).json({
@@ -487,11 +477,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
     }
 
     // Settle payment
-    if (!facilitatorData.evmPrivateKey) {
-      res.status(503).json({ success: false, error: 'EVM not configured on free facilitator' });
-      return;
-    }
-    const settleResult = await facilitator.settle(paymentPayload, paymentRequirements, facilitatorData.evmPrivateKey);
+    const settleResult = await demoFacilitator.settle(paymentPayload, paymentRequirements as PaymentRequirements);
 
     if (!settleResult.success) {
       res.status(500).json({
@@ -504,7 +490,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
 
     // Log the transaction
     createTransaction({
-      facilitator_id: 'free-facilitator',
+      facilitator_id: 'demo',
       type: 'settle',
       network: paymentRequirements.network,
       from_address: settleResult.payer || 'unknown',
