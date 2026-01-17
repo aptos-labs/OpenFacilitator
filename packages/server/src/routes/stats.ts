@@ -15,11 +15,13 @@ const STATS_PRICE_ATOMIC = '5000000'; // $5 USDC (6 decimals)
 
 // Solana config (USDC mint is constant, treasury configurable)
 const USDC_SOLANA_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-const SOLANA_TREASURY = process.env.TREASURY_SOLANA;
+const SOLANA_TREASURY = process.env.TREASURY_SOLANA || 'EnjogokdsxF7aK4bQ1KdJwzKbWePSpwKSHDgPy16GBuT';
+const SOLANA_FEE_PAYER = process.env.FEE_PAYER_SOLANA || 'Hbe1vdFs4EQVVAzcV12muHhr6DEKwrT9roMXGPLxLBLP';
 
 // Base config (USDC address is constant, treasury configurable)
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const BASE_TREASURY = process.env.TREASURY_BASE;
+const BASE_TREASURY = process.env.TREASURY_BASE || '0xECfb34867Cc542E4B56E4Ed9161Eb704976710ce';
+const BASE_FEE_PAYER = process.env.FEE_PAYER_BASE || '0x7C766F5fd9Ab3Dc09ACad5ECfacc99c4781efe29';
 
 // Facilitator endpoint (configurable for self-hosted deployments)
 const FACILITATOR_URL = process.env.STATS_FACILITATOR_URL || 'https://pay.openfacilitator.io';
@@ -88,6 +90,9 @@ const REQUIREMENTS = {
     asset: USDC_SOLANA_MINT,
     payTo: SOLANA_TREASURY,
     description: 'OpenFacilitator Platform Statistics - $5 per request',
+    extra: {
+      feePayer: SOLANA_FEE_PAYER,
+    },
     outputSchema: OUTPUT_SCHEMA,
   },
   base: {
@@ -98,6 +103,9 @@ const REQUIREMENTS = {
     asset: USDC_BASE,
     payTo: BASE_TREASURY,
     description: 'OpenFacilitator Platform Statistics - $5 per request',
+    extra: {
+      feePayer: BASE_FEE_PAYER,
+    },
     outputSchema: OUTPUT_SCHEMA,
   },
 };
