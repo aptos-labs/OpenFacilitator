@@ -1,5 +1,6 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
 import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2 } from '@openfacilitator/core';
+import { privateKeyToAccount } from 'viem/accounts';
 import { z } from 'zod';
 import { createTransaction, updateTransactionStatus } from '../db/transactions.js';
 import { getClaimableByUserWallet, getClaimsByUserWallet, getClaimById, getClaimsByResourceOwner, getClaimStats } from '../db/claims.js';
@@ -50,15 +51,25 @@ function normalizePaymentPayload(payload: string | object): string {
 /**
  * Get free facilitator configuration from environment
  */
-function getFreeFacilitatorConfig(): { config: FacilitatorConfig; evmPrivateKey?: string; solanaPrivateKey?: string } | null {
+function getFreeFacilitatorConfig(): { config: FacilitatorConfig; evmPrivateKey?: string; solanaPrivateKey?: string; evmAddress?: string } | null {
   const evmPrivateKey = process.env.FREE_FACILITATOR_EVM_KEY;
   const solanaPrivateKey = process.env.FREE_FACILITATOR_SOLANA_KEY;
-  const evmAddress = process.env.FREE_FACILITATOR_EVM_ADDRESS;
+  let evmAddress = process.env.FREE_FACILITATOR_EVM_ADDRESS;
   const solanaAddress = process.env.FREE_FACILITATOR_SOLANA_ADDRESS;
 
   // At minimum we need one wallet configured
   if (!evmPrivateKey && !solanaPrivateKey) {
     return null;
+  }
+
+  // Derive EVM address from private key if not explicitly set
+  if (evmPrivateKey && !evmAddress) {
+    try {
+      const account = privateKeyToAccount(evmPrivateKey as `0x${string}`);
+      evmAddress = account.address;
+    } catch (e) {
+      console.error('Failed to derive EVM address from private key:', e);
+    }
   }
 
   // Build supported chains and tokens based on what's configured
@@ -98,7 +109,7 @@ function getFreeFacilitatorConfig(): { config: FacilitatorConfig; evmPrivateKey?
     updatedAt: new Date(),
   };
 
-  return { config, evmPrivateKey, solanaPrivateKey };
+  return { config, evmPrivateKey, solanaPrivateKey, evmAddress };
 }
 
 /**
@@ -393,7 +404,7 @@ router.get('/demo/unreliable', (_req: Request, res: Response) => {
     network: 'base',
     maxAmountRequired: '100000', // 0.10 USDC
     asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    payTo: process.env.FREE_FACILITATOR_EVM_ADDRESS || '0x0000000000000000000000000000000000000000',
+    payTo: process.env.TREASURY_BASE || '0x0000000000000000000000000000000000000000',
     resource: 'https://api.openfacilitator.io/demo/unreliable',
     description: 'Demo endpoint that randomly fails ~50% of the time (for testing refund protection)',
   };
@@ -406,15 +417,19 @@ router.get('/demo/unreliable', (_req: Request, res: Response) => {
 });
 
 router.post('/demo/unreliable', async (req: Request, res: Response) => {
+  console.log('[demo/unreliable] POST request received');
   try {
     const facilitatorData = getFreeFacilitatorConfig();
     if (!facilitatorData) {
+      console.log('[demo/unreliable] Free facilitator not configured');
       res.status(503).json({ success: false, error: 'Free facilitator not configured' });
       return;
     }
+    console.log('[demo/unreliable] Facilitator config loaded, EVM key present:', !!facilitatorData.evmPrivateKey);
 
     // Get payment from header
     const paymentHeader = req.headers['x-payment'] as string;
+    console.log('[demo/unreliable] x-payment header present:', !!paymentHeader);
     if (!paymentHeader) {
       res.status(402).json({
         error: 'Payment Required',
@@ -423,7 +438,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
           network: 'base',
           maxAmountRequired: '100000',
           asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-          payTo: process.env.FREE_FACILITATOR_EVM_ADDRESS || '0x0000000000000000000000000000000000000000',
+          payTo: process.env.TREASURY_BASE || '0x0000000000000000000000000000000000000000',
           resource: 'https://api.openfacilitator.io/demo/unreliable',
           description: 'Demo endpoint that randomly fails ~50% of the time',
         }],
@@ -446,7 +461,7 @@ router.post('/demo/unreliable', async (req: Request, res: Response) => {
       network: 'base',
       maxAmountRequired: '100000',
       asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      payTo: process.env.FREE_FACILITATOR_EVM_ADDRESS || '0x0000000000000000000000000000000000000000',
+      payTo: process.env.TREASURY_BASE || '0x0000000000000000000000000000000000000000',
       resource: 'https://api.openfacilitator.io/demo/unreliable',
     };
 
