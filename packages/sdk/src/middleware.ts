@@ -384,6 +384,14 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
         if (config.on402) {
           await config.on402(req, res, requirements);
         } else {
+          // Build extra metadata
+          const extra: Record<string, unknown> = {
+            ...requirements.extra,
+          };
+          if (config.refundProtection) {
+            extra.supportsRefunds = true;
+          }
+
           res.status(402).json({
             error: 'Payment Required',
             accepts: [{
@@ -394,6 +402,7 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
               payTo: requirements.payTo,
               resource: requirements.resource || req.url,
               description: requirements.description,
+              ...(Object.keys(extra).length > 0 ? { extra } : {}),
             }],
           });
         }
@@ -548,6 +557,14 @@ export function honoPaymentMiddleware(config: HonoPaymentConfig) {
     const paymentString = c.req.header('x-payment');
 
     if (!paymentString) {
+      // Build extra metadata
+      const extra: Record<string, unknown> = {
+        ...requirements.extra,
+      };
+      if (config.refundProtection) {
+        extra.supportsRefunds = true;
+      }
+
       return c.json({
         error: 'Payment Required',
         accepts: [{
@@ -558,6 +575,7 @@ export function honoPaymentMiddleware(config: HonoPaymentConfig) {
           payTo: requirements.payTo,
           resource: requirements.resource || c.req.url,
           description: requirements.description,
+          ...(Object.keys(extra).length > 0 ? { extra } : {}),
         }],
       }, 402);
     }
