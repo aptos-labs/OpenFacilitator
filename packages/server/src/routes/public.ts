@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
 import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2 } from '@openfacilitator/core';
-import { OpenFacilitator, type PaymentPayload, type PaymentRequirements } from '@openfacilitator/sdk';
+import { OpenFacilitator, createPaymentMiddleware, type PaymentPayload, type PaymentRequirements } from '@openfacilitator/sdk';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // SDK client for demo endpoint (uses default facilitator)
@@ -397,32 +397,23 @@ router.get('/free/info', (_req: Request, res: Response) => {
 // Demo endpoint configuration
 const DEMO_PRICE = '100000'; // 0.10 USDC (6 decimals)
 const DEMO_RESOURCE = 'https://api.openfacilitator.io/demo/unreliable';
-
-// Solana USDC mint (mainnet)
 const SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /**
- * Demo x402 resource that randomly fails ~50% of the time.
- * Used to test refund protection flow.
- * Supports both Base (EVM) and Solana payments.
- *
- * GET /demo/unreliable - Returns 402 with payment requirements
- * POST /demo/unreliable - Process payment and randomly fail
+ * Build demo payment requirements for both networks
  */
-router.get('/demo/unreliable', async (_req: Request, res: Response) => {
-  // Fetch fee payers for both networks in parallel
+async function getDemoRequirements(): Promise<PaymentRequirements[]> {
   const [baseFeePayer, solanaFeePayer] = await Promise.all([
     demoFacilitator.getFeePayer('eip155:8453'),
     demoFacilitator.getFeePayer('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'),
   ]);
 
-  const accepts = [];
+  const requirements: PaymentRequirements[] = [];
 
-  // Add Base (EVM) payment option
   if (process.env.TREASURY_BASE) {
-    accepts.push({
+    requirements.push({
       scheme: 'exact',
-      network: 'eip155:8453', // CAIP-2 Base mainnet
+      network: 'eip155:8453',
       maxAmountRequired: DEMO_PRICE,
       asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
       payTo: process.env.TREASURY_BASE,
@@ -432,11 +423,10 @@ router.get('/demo/unreliable', async (_req: Request, res: Response) => {
     });
   }
 
-  // Add Solana payment option
   if (process.env.TREASURY_SOLANA) {
-    accepts.push({
+    requirements.push({
       scheme: 'exact',
-      network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', // CAIP-2 Solana mainnet
+      network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
       maxAmountRequired: DEMO_PRICE,
       asset: SOLANA_USDC_MINT,
       payTo: process.env.TREASURY_SOLANA,
@@ -446,198 +436,94 @@ router.get('/demo/unreliable', async (_req: Request, res: Response) => {
     });
   }
 
-  res.status(402).json({
-    x402Version: 2,
-    accepts,
-    error: 'Payment Required',
-    message: 'This endpoint requires a $0.10 USDC payment via x402 (Base or Solana)',
-  });
+  return requirements;
+}
+
+/**
+ * Demo x402 resource that randomly fails ~50% of the time.
+ * Used to test refund protection flow.
+ * Supports both Base (EVM) and Solana payments.
+ *
+ * Uses the SDK middleware to dogfood our own payment handling.
+ * The middleware handles 402 responses, verification, and settlement.
+ * We handle the random failure and manual refund reporting.
+ */
+const demoPaymentMiddleware = createPaymentMiddleware({
+  facilitator: demoFacilitator,
+  getRequirements: getDemoRequirements,
+  // Enable refundProtection so 402 includes supportsRefunds: true
+  // But we'll handle the actual failure reporting manually for custom behavior
+  refundProtection: process.env.DEMO_REFUND_API_KEY ? {
+    apiKey: process.env.DEMO_REFUND_API_KEY,
+    facilitatorUrl: process.env.API_URL || 'https://api.openfacilitator.io',
+  } : undefined,
 });
 
-router.post('/demo/unreliable', async (req: Request, res: Response) => {
-  console.log('[demo/unreliable] POST request received');
-  try {
-    // Get payment from header
-    const paymentHeader = req.headers['x-payment'] as string;
-    console.log('[demo/unreliable] x-payment header present:', !!paymentHeader);
+// GET just returns 402 (middleware handles it)
+router.get('/demo/unreliable', demoPaymentMiddleware, (_req: Request, res: Response) => {
+  // This won't be reached - middleware returns 402 for GET without payment
+  res.status(402).json({ error: 'Payment Required' });
+});
 
-    if (!paymentHeader) {
-      // No payment - return 402 with all accepted payment options
-      const [baseFeePayer, solanaFeePayer] = await Promise.all([
-        demoFacilitator.getFeePayer('eip155:8453'),
-        demoFacilitator.getFeePayer('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'),
-      ]);
+// POST processes payment and randomly fails
+router.post('/demo/unreliable', demoPaymentMiddleware, async (req: Request, res: Response) => {
+  // Payment was verified and settled by middleware
+  const paymentContext = (req as { paymentContext?: { transactionHash: string; userWallet: string; amount: string; asset: string; network: string } }).paymentContext;
 
-      const accepts = [];
-      if (process.env.TREASURY_BASE) {
-        accepts.push({
-          scheme: 'exact',
-          network: 'eip155:8453',
-          maxAmountRequired: DEMO_PRICE,
-          asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-          payTo: process.env.TREASURY_BASE,
-          resource: DEMO_RESOURCE,
-          description: 'Demo endpoint - Base USDC ($0.10)',
-          extra: baseFeePayer ? { feePayer: baseFeePayer } : undefined,
-        });
-      }
-      if (process.env.TREASURY_SOLANA) {
-        accepts.push({
-          scheme: 'exact',
-          network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-          maxAmountRequired: DEMO_PRICE,
-          asset: SOLANA_USDC_MINT,
-          payTo: process.env.TREASURY_SOLANA,
-          resource: DEMO_RESOURCE,
-          description: 'Demo endpoint - Solana USDC ($0.10)',
-          extra: solanaFeePayer ? { feePayer: solanaFeePayer } : undefined,
-        });
-      }
+  if (!paymentContext) {
+    res.status(500).json({ success: false, error: 'Payment context missing' });
+    return;
+  }
 
-      res.status(402).json({
-        x402Version: 2,
-        accepts,
-        error: 'Payment Required',
-        message: 'This endpoint requires a $0.10 USDC payment via x402 (Base or Solana)',
+  // RANDOMLY FAIL ~50% of the time
+  const shouldFail = Math.random() < 0.5;
+
+  if (shouldFail) {
+    // Report failure manually (not throwing, so middleware won't auto-report)
+    const demoApiKey = process.env.DEMO_REFUND_API_KEY;
+    let refundReported = false;
+    let claimId: string | undefined;
+
+    console.log('[demo/unreliable] Failure triggered, reporting refund...');
+
+    if (demoApiKey) {
+      const claimResult = await reportFailure({
+        apiKey: demoApiKey,
+        originalTxHash: paymentContext.transactionHash,
+        userWallet: paymentContext.userWallet,
+        amount: paymentContext.amount,
+        asset: paymentContext.asset,
+        network: paymentContext.network,
+        reason: 'Demo endpoint simulated failure',
       });
-      return;
+      console.log('[demo/unreliable] Refund report result:', claimResult);
+      refundReported = claimResult.success;
+      claimId = claimResult.claimId;
     }
 
-    // Decode payment payload to detect network
-    let paymentPayload: PaymentPayload;
-    try {
-      const decoded = Buffer.from(paymentHeader, 'base64').toString('utf-8');
-      paymentPayload = JSON.parse(decoded);
-    } catch {
-      res.status(400).json({ success: false, error: 'Invalid payment header' });
-      return;
-    }
-
-    // Detect network from payload
-    const payloadNetwork = (paymentPayload as { network?: string }).network;
-    const isSolanaPayment = payloadNetwork?.startsWith('solana:') ||
-                            payloadNetwork === 'solana' ||
-                            // Check for Solana-specific payload structure
-                            !!(paymentPayload as { payload?: { transaction?: string } }).payload?.transaction;
-
-    console.log('[demo/unreliable] Detected network:', isSolanaPayment ? 'Solana' : 'Base');
-
-    // Build payment requirements based on detected network
-    let paymentRequirements: PaymentRequirements;
-
-    if (isSolanaPayment) {
-      const feePayer = await demoFacilitator.getFeePayer('solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp');
-      paymentRequirements = {
-        scheme: 'exact',
-        network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
-        maxAmountRequired: DEMO_PRICE,
-        asset: SOLANA_USDC_MINT,
-        payTo: process.env.TREASURY_SOLANA!,
-        resource: DEMO_RESOURCE,
-        description: 'Demo endpoint - Solana USDC ($0.10)',
-        extra: feePayer ? { feePayer } : undefined,
-      } as PaymentRequirements;
-    } else {
-      const feePayer = await demoFacilitator.getFeePayer('eip155:8453');
-      paymentRequirements = {
-        scheme: 'exact',
-        network: 'eip155:8453',
-        maxAmountRequired: DEMO_PRICE,
-        asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-        payTo: process.env.TREASURY_BASE!,
-        resource: DEMO_RESOURCE,
-        description: 'Demo endpoint - Base USDC ($0.10)',
-        extra: feePayer ? { feePayer } : undefined,
-      } as PaymentRequirements;
-    }
-
-    // Verify payment
-    const verifyResult = await demoFacilitator.verify(paymentPayload, paymentRequirements);
-
-    if (!verifyResult.isValid) {
-      res.status(402).json({
-        success: false,
-        error: 'Payment verification failed',
-        reason: verifyResult.invalidReason,
-      });
-      return;
-    }
-
-    // Settle payment
-    const settleResult = await demoFacilitator.settle(paymentPayload, paymentRequirements);
-
-    if (!settleResult.success) {
-      res.status(500).json({
-        success: false,
-        error: 'Payment settlement failed',
-        reason: settleResult.errorReason,
-      });
-      return;
-    }
-
-    // RANDOMLY FAIL ~50% of the time
-    const shouldFail = Math.random() < 0.5;
-
-    if (shouldFail) {
-      // Report failure for refund if API key is configured
-      const demoApiKey = process.env.DEMO_REFUND_API_KEY;
-      let refundReported = false;
-      let claimId: string | undefined;
-
-      console.log('[demo/unreliable] Failure triggered, reporting refund...');
-      console.log('[demo/unreliable] API key configured:', !!demoApiKey);
-      console.log('[demo/unreliable] Transaction:', settleResult.transaction);
-      console.log('[demo/unreliable] Payer:', settleResult.payer);
-      console.log('[demo/unreliable] Network:', paymentRequirements.network);
-
-      if (demoApiKey && settleResult.transaction && settleResult.payer) {
-        const claimResult = await reportFailure({
-          apiKey: demoApiKey,
-          originalTxHash: settleResult.transaction,
-          userWallet: settleResult.payer,
-          amount: paymentRequirements.maxAmountRequired,
-          asset: paymentRequirements.asset,
-          network: paymentRequirements.network,
-          reason: 'Demo endpoint simulated failure',
-        });
-        console.log('[demo/unreliable] Refund report result:', claimResult);
-        refundReported = claimResult.success;
-        claimId = claimResult.claimId;
-      } else {
-        console.log('[demo/unreliable] Skipping refund report - missing data');
-      }
-
-      // Return failure response with refund info
-      res.status(500).json({
-        success: false,
-        error: 'Simulated random failure',
-        message: 'This endpoint randomly fails to demonstrate refund protection.',
-        refundReported,
-        claimId,
-        transactionHash: settleResult.transaction,
-        payer: settleResult.payer,
-        amount: paymentRequirements.maxAmountRequired,
-        asset: paymentRequirements.asset,
-        network: paymentRequirements.network,
-      });
-      return;
-    }
-
-    // Success!
-    res.json({
-      success: true,
-      message: 'You got lucky! The unreliable endpoint succeeded this time.',
-      transactionHash: settleResult.transaction,
-      payer: settleResult.payer,
-      network: paymentRequirements.network,
-    });
-  } catch (error) {
-    console.error('Demo unreliable endpoint error:', error);
     res.status(500).json({
       success: false,
-      error: 'Internal server error',
+      error: 'Simulated random failure',
+      message: 'This endpoint randomly fails to demonstrate refund protection.',
+      refundReported,
+      claimId,
+      transactionHash: paymentContext.transactionHash,
+      payer: paymentContext.userWallet,
+      amount: paymentContext.amount,
+      asset: paymentContext.asset,
+      network: paymentContext.network,
     });
+    return;
   }
+
+  // Success!
+  res.json({
+    success: true,
+    message: 'You got lucky! The unreliable endpoint succeeded this time.',
+    transactionHash: paymentContext.transactionHash,
+    payer: paymentContext.userWallet,
+    network: paymentContext.network,
+  });
 });
 
 // ============================================

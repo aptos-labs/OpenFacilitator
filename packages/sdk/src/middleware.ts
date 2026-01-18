@@ -317,12 +317,12 @@ export function createPaymentContext(
 export interface PaymentMiddlewareConfig {
   /** Facilitator instance or URL */
   facilitator: OpenFacilitator | string;
-  /** Function to get payment requirements for the request */
-  getRequirements: (req: unknown) => PaymentRequirements | Promise<PaymentRequirements>;
+  /** Function to get payment requirements for the request (single or multiple for multi-network) */
+  getRequirements: (req: unknown) => PaymentRequirements | PaymentRequirements[] | Promise<PaymentRequirements | PaymentRequirements[]>;
   /** Optional: Refund protection config (enables auto failure reporting) */
   refundProtection?: RefundProtectionConfig;
   /** Optional: Custom 402 response handler */
-  on402?: (req: unknown, res: unknown, requirements: PaymentRequirements) => void | Promise<void>;
+  on402?: (req: unknown, res: unknown, requirements: PaymentRequirements[]) => void | Promise<void>;
 }
 
 /**
@@ -372,8 +372,9 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
     next: (error?: unknown) => void
   ) => {
     try {
-      // Get requirements for this request
-      const requirements = await config.getRequirements(req);
+      // Get requirements for this request (may be single or array)
+      const rawRequirements = await config.getRequirements(req);
+      const requirementsArray = Array.isArray(rawRequirements) ? rawRequirements : [rawRequirements];
 
       // Check for X-PAYMENT header
       const paymentHeader = req.headers['x-payment'];
@@ -382,19 +383,18 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
       if (!paymentString) {
         // No payment - return 402
         if (config.on402) {
-          await config.on402(req, res, requirements);
+          await config.on402(req, res, requirementsArray);
         } else {
-          // Build extra metadata
-          const extra: Record<string, unknown> = {
-            ...requirements.extra,
-          };
-          if (config.refundProtection) {
-            extra.supportsRefunds = true;
-          }
+          // Build accepts array with extra metadata
+          const accepts = requirementsArray.map((requirements) => {
+            const extra: Record<string, unknown> = {
+              ...requirements.extra,
+            };
+            if (config.refundProtection) {
+              extra.supportsRefunds = true;
+            }
 
-          res.status(402).json({
-            error: 'Payment Required',
-            accepts: [{
+            return {
               scheme: requirements.scheme,
               network: requirements.network,
               maxAmountRequired: requirements.maxAmountRequired,
@@ -403,7 +403,12 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
               resource: requirements.resource || req.url,
               description: requirements.description,
               ...(Object.keys(extra).length > 0 ? { extra } : {}),
-            }],
+            };
+          });
+
+          res.status(402).json({
+            error: 'Payment Required',
+            accepts,
           });
         }
         return;
@@ -420,6 +425,10 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
         res.status(400).json({ error: 'Invalid X-PAYMENT header' });
         return;
       }
+
+      // Find matching requirements based on payment network
+      const paymentNetwork = (paymentPayload as { network?: string }).network;
+      const requirements = requirementsArray.find((r) => r.network === paymentNetwork) || requirementsArray[0];
 
       // Verify payment
       const verifyResult = await facilitator.verify(paymentPayload, requirements);
@@ -502,8 +511,8 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
 export interface HonoPaymentConfig {
   /** Facilitator instance or URL */
   facilitator: OpenFacilitator | string;
-  /** Function to get payment requirements for the request */
-  getRequirements: (c: HonoContext) => PaymentRequirements | Promise<PaymentRequirements>;
+  /** Function to get payment requirements for the request (single or multiple for multi-network) */
+  getRequirements: (c: HonoContext) => PaymentRequirements | PaymentRequirements[] | Promise<PaymentRequirements | PaymentRequirements[]>;
   /** Optional: Refund protection config */
   refundProtection?: RefundProtectionConfig;
 }
@@ -550,24 +559,24 @@ export function honoPaymentMiddleware(config: HonoPaymentConfig) {
     },
     next: () => Promise<void>
   ) => {
-    // Get requirements
-    const requirements = await config.getRequirements(c);
+    // Get requirements (may be single or array)
+    const rawRequirements = await config.getRequirements(c);
+    const requirementsArray = Array.isArray(rawRequirements) ? rawRequirements : [rawRequirements];
 
     // Check for X-PAYMENT header
     const paymentString = c.req.header('x-payment');
 
     if (!paymentString) {
-      // Build extra metadata
-      const extra: Record<string, unknown> = {
-        ...requirements.extra,
-      };
-      if (config.refundProtection) {
-        extra.supportsRefunds = true;
-      }
+      // Build accepts array with extra metadata
+      const accepts = requirementsArray.map((requirements) => {
+        const extra: Record<string, unknown> = {
+          ...requirements.extra,
+        };
+        if (config.refundProtection) {
+          extra.supportsRefunds = true;
+        }
 
-      return c.json({
-        error: 'Payment Required',
-        accepts: [{
+        return {
           scheme: requirements.scheme,
           network: requirements.network,
           maxAmountRequired: requirements.maxAmountRequired,
@@ -576,7 +585,12 @@ export function honoPaymentMiddleware(config: HonoPaymentConfig) {
           resource: requirements.resource || c.req.url,
           description: requirements.description,
           ...(Object.keys(extra).length > 0 ? { extra } : {}),
-        }],
+        };
+      });
+
+      return c.json({
+        error: 'Payment Required',
+        accepts,
       }, 402);
     }
 
@@ -590,6 +604,10 @@ export function honoPaymentMiddleware(config: HonoPaymentConfig) {
     } catch {
       return c.json({ error: 'Invalid X-PAYMENT header' }, 400);
     }
+
+    // Find matching requirements based on payment network
+    const paymentNetwork = (paymentPayload as { network?: string }).network;
+    const requirements = requirementsArray.find((r) => r.network === paymentNetwork) || requirementsArray[0];
 
     // Verify payment
     const verifyResult = await facilitator.verify(paymentPayload, requirements);
