@@ -47,11 +47,11 @@ Plans:
   1. New users can register for rewards with email and Solana wallet address
   2. Existing Better Auth users can link their account to rewards program
   3. Admin users are correctly identified via ADMIN_USER_IDS config
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Rewards account registration and linking
-- [ ] 02-02: Admin identification system
+- [ ] 02-01-PLAN.md - Backend: admin middleware, enrollment helpers, rewards API routes
+- [ ] 02-02-PLAN.md - Frontend: admin badge, enrollment banner, rewards status integration
 
 ### Phase 3: Solana Address Management
 **Goal**: Users can register and prove ownership of Solana pay-to addresses
@@ -197,7 +197,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 1/1 | Complete | 2026-01-19 |
-| 2. Auth Integration | 0/2 | Not started | - |
+| 2. Auth Integration | 0/2 | Planned | - |
 | 3. Solana Address Management | 0/1 | Not started | - |
 | 4. EVM Address Management | 0/1 | Not started | - |
 | 5. Address UI | 0/2 | Not started | - |
