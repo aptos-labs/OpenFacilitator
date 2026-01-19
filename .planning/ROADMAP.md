@@ -13,7 +13,7 @@ This roadmap delivers a token rewards program where users earn $OPEN tokens for 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Database Foundation** - Schema for rewards tables, address tracking, campaigns, claims
-- [ ] **Phase 2: Auth Integration** - Link rewards accounts to Better Auth, admin identification
+- [x] **Phase 2: Auth Integration** - Link rewards accounts to Better Auth, admin identification
 - [ ] **Phase 3: Solana Address Management** - Add and verify Solana pay-to addresses
 - [ ] **Phase 4: EVM Address Management** - Add and verify EVM pay-to addresses
 - [ ] **Phase 5: Address UI** - List, remove, and manage multiple tracked addresses
@@ -40,27 +40,28 @@ Plans:
 - [x] 01-01-PLAN.md - Database schema and CRUD modules for rewards tables
 
 ### Phase 2: Auth Integration
-**Goal**: Users can access rewards features through existing Better Auth accounts
+**Goal**: Infrastructure for rewards program integrated with existing Better Auth
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-05
+**Requirements**: AUTH-02 (infrastructure), AUTH-05
 **Success Criteria** (what must be TRUE):
-  1. New users can register for rewards with email and Solana wallet address
-  2. Existing Better Auth users can link their account to rewards program
-  3. Admin users are correctly identified via ADMIN_USER_IDS config
+  1. Admin users are correctly identified via ADMIN_USER_IDS config
+  2. Rewards API endpoints exist (POST /enroll, GET /status) for Phase 3 consumption
+  3. Dashboard displays admin badge and informational rewards banner
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md - Backend: admin middleware, enrollment helpers, rewards API routes
-- [ ] 02-02-PLAN.md - Frontend: admin badge, enrollment banner, rewards status integration
+- [x] 02-01-PLAN.md - Backend: admin middleware, enrollment helpers, rewards API routes
+- [x] 02-02-PLAN.md - Frontend: admin badge, rewards info banner, status integration
 
 ### Phase 3: Solana Address Management
 **Goal**: Users can register and prove ownership of Solana pay-to addresses
 **Depends on**: Phase 2
-**Requirements**: ADDR-01, ADDR-03
+**Requirements**: AUTH-01, AUTH-02, ADDR-01, ADDR-03
 **Success Criteria** (what must be TRUE):
-  1. User can add a Solana address to track for rewards
+  1. User can add a Solana address to track for rewards (enrolls in program)
   2. User can verify Solana address ownership via message signature
   3. Unverified addresses are stored but marked as pending verification
+  4. New/existing Better Auth users complete rewards enrollment by adding verified address
 **Plans**: TBD
 
 Plans:
@@ -197,7 +198,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 1/1 | Complete | 2026-01-19 |
-| 2. Auth Integration | 0/2 | Planned | - |
+| 2. Auth Integration | 2/2 | Complete | 2026-01-19 |
 | 3. Solana Address Management | 0/1 | Not started | - |
 | 4. EVM Address Management | 0/1 | Not started | - |
 | 5. Address UI | 0/2 | Not started | - |
