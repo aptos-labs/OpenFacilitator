@@ -19,6 +19,7 @@ import { CreateFacilitatorCard } from '@/components/create-facilitator-card';
 import { CreateFacilitatorModal } from '@/components/create-facilitator-modal';
 import { BillingSection } from '@/components/billing-section';
 import { EmptyState } from '@/components/empty-state';
+import { RewardsInfoBanner } from '@/components/rewards-info-banner';
 
 const FREE_ENDPOINT = 'https://pay.openfacilitator.io';
 
@@ -142,6 +143,9 @@ export default function DashboardPage() {
             </Button>
           )}
         </div>
+
+        {/* Rewards Info Banner */}
+        <RewardsInfoBanner />
 
         {/* Loading State */}
         {isLoading ? (

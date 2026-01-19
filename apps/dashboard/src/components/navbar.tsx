@@ -10,7 +10,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 export function Navbar() {
   const pathname = usePathname();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isDocsPage = pathname?.startsWith('/docs');
@@ -53,7 +53,14 @@ export function Navbar() {
           {isLoading ? (
             <div className="w-20 h-8 bg-muted rounded animate-pulse" />
           ) : isAuthenticated ? (
-            <WalletDropdown />
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                  Admin
+                </span>
+              )}
+              <WalletDropdown />
+            </div>
           ) : (
             <Link
               href="/auth/signin"
@@ -112,7 +119,14 @@ export function Navbar() {
                 </div>
               ) : isAuthenticated ? (
                 <div className="px-3 py-3">
-                  <WalletDropdown />
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+                        Admin
+                      </span>
+                    )}
+                    <WalletDropdown />
+                  </div>
                 </div>
               ) : (
                 <Link
