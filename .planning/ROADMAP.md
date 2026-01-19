@@ -34,10 +34,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Rewards-related tables exist in SQLite database (addresses, campaigns, claims, volume_snapshots)
   2. Schema supports all data relationships (user -> addresses, user -> claims, campaign -> claims)
   3. Migrations can be run idempotently without affecting existing tables
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: Schema design and migration implementation
+- [ ] 01-01-PLAN.md - Database schema and CRUD modules for rewards tables
 
 ### Phase 2: Auth Integration
 **Goal**: Users can access rewards features through existing Better Auth accounts
@@ -196,7 +196,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Database Foundation | 0/1 | Not started | - |
+| 1. Database Foundation | 0/1 | Planned | - |
 | 2. Auth Integration | 0/2 | Not started | - |
 | 3. Solana Address Management | 0/1 | Not started | - |
 | 4. EVM Address Management | 0/1 | Not started | - |
