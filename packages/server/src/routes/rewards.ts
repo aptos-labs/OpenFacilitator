@@ -20,7 +20,7 @@ import {
   verifyEVMSignature,
   createEVMVerificationMessage,
 } from '../utils/evm-verify.js';
-import { createDailySnapshots } from '../db/volume-aggregation.js';
+import { createDailySnapshots, getUserTotalVolume } from '../db/volume-aggregation.js';
 
 const router: IRouter = Router();
 
@@ -261,6 +261,44 @@ router.post('/snapshot', async (req: Request, res: Response) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to create volume snapshots',
+    });
+  }
+});
+
+/**
+ * GET /volume
+ * Get current user's volume for a campaign
+ * Returns snapshot volume + live delta = total volume
+ */
+router.get('/volume', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const campaignId = req.query.campaignId as string;
+
+    if (!campaignId) {
+      res.status(400).json({
+        error: 'Validation error',
+        message: 'campaignId query parameter is required',
+      });
+      return;
+    }
+
+    const volumeData = getUserTotalVolume(userId, campaignId);
+
+    res.json({
+      userId,
+      campaignId,
+      totalVolume: volumeData.total_volume,
+      uniquePayers: volumeData.unique_payers,
+      snapshotVolume: volumeData.snapshot_volume,
+      liveVolume: volumeData.live_volume,
+      lastSnapshotDate: volumeData.last_snapshot_date,
+    });
+  } catch (error) {
+    console.error('Error getting user volume:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to get volume data',
     });
   }
 });
