@@ -63,20 +63,17 @@ export function EnrollmentModal({ open, onOpenChange }: EnrollmentModalProps) {
   const handleTryAgain = useCallback(() => {
     setStatus('idle');
     setErrorMessage(null);
-    // Disconnect and let user start fresh
     disconnect();
   }, [disconnect]);
 
   const handleAddAnother = useCallback(() => {
     setStatus('idle');
     setErrorMessage(null);
-    // Disconnect so user can connect different wallet
     disconnect();
   }, [disconnect]);
 
   const handleClose = useCallback((newOpen: boolean) => {
     if (!newOpen) {
-      // Reset state when closing
       setStatus('idle');
       setErrorMessage(null);
       disconnect();

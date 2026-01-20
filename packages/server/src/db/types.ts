@@ -278,11 +278,12 @@ export interface ClaimRecord {
 /**
  * Reward address database record
  * Pay-to addresses tracked for volume rewards
+ * chain_type 'facilitator' is used as enrollment marker for facilitator owners
  */
 export interface RewardAddressRecord {
   id: string;
   user_id: string;
-  chain_type: 'solana' | 'evm';
+  chain_type: 'solana' | 'evm' | 'facilitator';
   address: string;
   verification_status: 'pending' | 'verified';
   verified_at: string | null;

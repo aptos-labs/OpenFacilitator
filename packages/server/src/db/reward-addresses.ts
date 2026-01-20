@@ -4,7 +4,7 @@ import type { RewardAddressRecord } from './types.js';
 
 export function createRewardAddress(data: {
   user_id: string;
-  chain_type: 'solana' | 'evm';
+  chain_type: 'solana' | 'evm' | 'facilitator';
   address: string;
 }): RewardAddressRecord | null {
   const db = getDatabase();

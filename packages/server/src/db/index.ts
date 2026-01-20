@@ -208,7 +208,7 @@ export function initializeDatabase(dbPath?: string): Database.Database {
     const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='subscriptions'").get() as { sql: string } | undefined;
     if (tableInfo && tableInfo.sql && tableInfo.sql.includes('CHECK')) {
       console.log('🔄 Migrating subscriptions table (removing CHECK constraint)...');
-      
+
       db.exec(`
         CREATE TABLE IF NOT EXISTS subscriptions_new (
           id TEXT PRIMARY KEY,
@@ -220,17 +220,50 @@ export function initializeDatabase(dbPath?: string): Database.Database {
           expires_at TEXT NOT NULL,
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-        
+
         INSERT INTO subscriptions_new SELECT * FROM subscriptions;
         DROP TABLE subscriptions;
         ALTER TABLE subscriptions_new RENAME TO subscriptions;
-        
+
         CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
         CREATE INDEX IF NOT EXISTS idx_subscriptions_expires ON subscriptions(expires_at);
         CREATE INDEX IF NOT EXISTS idx_subscriptions_tx_hash ON subscriptions(tx_hash);
       `);
-      
+
       console.log('✅ Migrated subscriptions table');
+    }
+  } catch (e) {
+    // Table might not exist yet
+  }
+
+  // Migration: Add 'facilitator' to chain_type CHECK constraint in reward_addresses table
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='reward_addresses'").get() as { sql: string } | undefined;
+    if (tableInfo && tableInfo.sql && !tableInfo.sql.includes("'facilitator'")) {
+      console.log('🔄 Migrating reward_addresses table (adding facilitator chain_type)...');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS reward_addresses_new (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
+          chain_type TEXT NOT NULL CHECK (chain_type IN ('solana', 'evm', 'facilitator')),
+          address TEXT NOT NULL,
+          verification_status TEXT NOT NULL DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified')),
+          verified_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(user_id, address)
+        );
+
+        INSERT INTO reward_addresses_new SELECT * FROM reward_addresses;
+        DROP TABLE reward_addresses;
+        ALTER TABLE reward_addresses_new RENAME TO reward_addresses;
+
+        CREATE INDEX IF NOT EXISTS idx_reward_addresses_user ON reward_addresses(user_id);
+        CREATE INDEX IF NOT EXISTS idx_reward_addresses_address ON reward_addresses(address);
+        CREATE INDEX IF NOT EXISTS idx_reward_addresses_chain ON reward_addresses(chain_type);
+      `);
+
+      console.log('✅ Migrated reward_addresses table');
     }
   } catch (e) {
     // Table might not exist yet
@@ -578,10 +611,11 @@ export function initializeDatabase(dbPath?: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_claims_status ON claims(status);
 
     -- Reward addresses table (user pay-to addresses for volume tracking)
+    -- chain_type 'facilitator' is used as marker for facilitator owners (volume tracked automatically)
     CREATE TABLE IF NOT EXISTS reward_addresses (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
-      chain_type TEXT NOT NULL CHECK (chain_type IN ('solana', 'evm')),
+      chain_type TEXT NOT NULL CHECK (chain_type IN ('solana', 'evm', 'facilitator')),
       address TEXT NOT NULL,
       verification_status TEXT NOT NULL DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified')),
       verified_at TEXT,

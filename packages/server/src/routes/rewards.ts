@@ -27,10 +27,13 @@ router.get('/status', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
-    const isEnrolled = isUserEnrolledInRewards(userId);
+    const hasAddresses = isUserEnrolledInRewards(userId);
     const isUserAdmin = isAdmin(userId);
     const isOwner = isFacilitatorOwner(userId);
     const addresses = getRewardAddressesByUser(userId);
+
+    // Enrolled if: has registered addresses OR owns a facilitator (auto-enrolled)
+    const isEnrolled = hasAddresses || isOwner;
 
     res.json({
       isEnrolled,
