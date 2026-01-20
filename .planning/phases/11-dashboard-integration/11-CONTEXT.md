@@ -14,8 +14,8 @@ Seamlessly integrate the complete rewards program into the existing dashboard. T
 ## Implementation Decisions
 
 ### Navigation placement
-- Rewards entry point lives in the **Settings submenu** (not main sidebar or top nav)
-- Show **notification badge when claimable** — visual indicator on settings menu item
+- Rewards entry point lives in the **WalletDropdown menu** (research found no Settings submenu exists; WalletDropdown is natural location)
+- Show **notification badge when claimable** — visual indicator on menu item
 - Badge **persists until user actually claims** tokens (not dismissed on view)
 - Menu label: **"Rewards"** (simple, direct)
 
