@@ -166,12 +166,12 @@ Plans:
   4. System executes SPL token transfer from rewards wallet on claim
   5. Dashboard shows transaction confirmation with Solana explorer link
   6. User can view claim history with status and transaction signatures
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 10-01: Claim eligibility and reward calculation
-- [ ] 10-02: SPL token transfer execution
-- [ ] 10-03: Claim confirmation and history
+- [ ] 10-01-PLAN.md — Claim eligibility service, reward calculation, eligibility API endpoint
+- [ ] 10-02-PLAN.md — SPL token transfer service, execute claim endpoint, status updates
+- [ ] 10-03-PLAN.md — Confetti celebration, Twitter share, claim history display
 
 ### Phase 11: Dashboard Integration
 **Goal**: Rewards program is seamlessly integrated into existing dashboard
