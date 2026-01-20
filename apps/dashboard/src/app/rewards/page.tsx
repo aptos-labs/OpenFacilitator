@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Settings, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/components/auth/auth-provider';
 
 export default function RewardsPage() {
+  const queryClient = useQueryClient();
   const { isAdmin, isFacilitatorOwner, isLoading: authLoading } = useAuth();
 
   const { data: activeCampaign, isLoading: campaignLoading } = useQuery({
@@ -31,10 +32,21 @@ export default function RewardsPage() {
     enabled: !!activeCampaign?.campaign?.id,
   });
 
+  const { data: claimData, isLoading: claimLoading } = useQuery({
+    queryKey: ['myClaim', activeCampaign?.campaign?.id],
+    queryFn: () => api.getMyClaim(activeCampaign!.campaign!.id),
+    enabled: !!activeCampaign?.campaign?.id,
+  });
+
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ['campaignHistory'],
     queryFn: () => api.getCampaignHistory(),
   });
+
+  const handleClaimSuccess = () => {
+    // Refetch claim data after successful claim initiation
+    queryClient.invalidateQueries({ queryKey: ['myClaim', activeCampaign?.campaign?.id] });
+  };
 
   const isLoading = authLoading || campaignLoading;
 
@@ -78,6 +90,8 @@ export default function RewardsPage() {
                 totalPoolVolume={activeCampaign.totalVolume}
                 isFacilitatorOwner={isFacilitatorOwner}
                 volumeBreakdown={breakdownData ?? null}
+                claim={claimLoading ? null : (claimData?.claim ?? null)}
+                onClaimSuccess={handleClaimSuccess}
               />
             ) : (
               <Card>

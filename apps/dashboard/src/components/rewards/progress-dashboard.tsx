@@ -1,12 +1,13 @@
 'use client';
 
 import { differenceInDays } from 'date-fns';
-import { Clock } from 'lucide-react';
+import { Clock, ExternalLink, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProgressBar } from './progress-bar';
 import { RewardEstimate } from './reward-estimate';
 import { AddressBreakdown } from './address-breakdown';
-import type { Campaign, VolumeBreakdown } from '@/lib/api';
+import { ClaimButton } from './claim-button';
+import type { Campaign, VolumeBreakdown, RewardClaim } from '@/lib/api';
 
 interface ProgressDashboardProps {
   campaign: Campaign;
@@ -14,6 +15,8 @@ interface ProgressDashboardProps {
   totalPoolVolume: string;
   isFacilitatorOwner: boolean;
   volumeBreakdown: VolumeBreakdown | null;
+  claim: RewardClaim | null;
+  onClaimSuccess?: () => void;
 }
 
 function formatUSDC(amount: string): string {
@@ -26,12 +29,18 @@ function formatUSDC(amount: string): string {
   }).format(value);
 }
 
+function truncateAddress(address: string): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
 export function ProgressDashboard({
   campaign,
   userVolume,
   totalPoolVolume,
   isFacilitatorOwner,
   volumeBreakdown,
+  claim,
+  onClaimSuccess,
 }: ProgressDashboardProps) {
   const now = new Date();
   const endsAt = new Date(campaign.ends_at);
@@ -59,12 +68,102 @@ export function ProgressDashboard({
       <Card>
         <CardContent className="py-8 text-center">
           <h3 className="text-lg font-semibold mb-2">Campaign Ended</h3>
-          <p className="text-muted-foreground">
-            Rewards are being calculated. Check back soon for your final reward amount.
-          </p>
-          {metThreshold && (
-            <p className="mt-4 text-green-600 dark:text-green-400 font-medium">
-              You met the threshold and are eligible for rewards!
+
+          {/* User met threshold and has a pending claim */}
+          {claim && claim.status === 'pending' && (
+            <>
+              <p className="text-green-600 dark:text-green-400 font-medium mb-6">
+                Congratulations! You met the threshold and earned rewards.
+              </p>
+              <ClaimButton
+                claimId={claim.id}
+                rewardAmount={claim.final_reward_amount}
+                onSuccess={onClaimSuccess}
+              />
+            </>
+          )}
+
+          {/* Claim is processing */}
+          {claim && claim.status === 'processing' && (
+            <>
+              <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400 mb-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="font-medium">Claim in progress...</span>
+              </div>
+              {claim.claim_wallet && (
+                <p className="text-sm text-muted-foreground">
+                  Tokens will be sent to{' '}
+                  <a
+                    href={`https://solscan.io/account/${claim.claim_wallet}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    {truncateAddress(claim.claim_wallet)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </p>
+              )}
+            </>
+          )}
+
+          {/* Claim completed */}
+          {claim && claim.status === 'completed' && (
+            <>
+              <p className="text-green-600 dark:text-green-400 font-medium mb-2">
+                Rewards claimed successfully!
+              </p>
+              {claim.claim_wallet && (
+                <p className="text-sm text-muted-foreground">
+                  Sent to{' '}
+                  <a
+                    href={`https://solscan.io/account/${claim.claim_wallet}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    {truncateAddress(claim.claim_wallet)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </p>
+              )}
+              {claim.tx_signature && (
+                <a
+                  href={`https://solscan.io/tx/${claim.tx_signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+                >
+                  View transaction
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </>
+          )}
+
+          {/* Claim failed */}
+          {claim && claim.status === 'failed' && (
+            <p className="text-red-600 dark:text-red-400 font-medium">
+              There was an issue processing your claim. Please contact support.
+            </p>
+          )}
+
+          {/* User met threshold but no claim record yet (rewards being calculated) */}
+          {!claim && metThreshold && (
+            <>
+              <p className="text-muted-foreground">
+                Rewards are being calculated. Check back soon for your final reward amount.
+              </p>
+              <p className="mt-4 text-green-600 dark:text-green-400 font-medium">
+                You met the threshold and are eligible for rewards!
+              </p>
+            </>
+          )}
+
+          {/* User did not meet threshold */}
+          {!claim && !metThreshold && (
+            <p className="text-muted-foreground">
+              You did not meet the volume threshold for this campaign.
             </p>
           )}
         </CardContent>
