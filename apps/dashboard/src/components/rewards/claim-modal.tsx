@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { api } from '@/lib/api';
-import { Loader2, CheckCircle, AlertCircle, Wallet, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Wallet, ExternalLink, Gift, Twitter } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 interface ClaimModalProps {
   open: boolean;
@@ -37,6 +38,50 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+function celebrateClaim() {
+  // Fire from center
+  confetti({
+    particleCount: 100,
+    spread: 70,
+    origin: { y: 0.6 },
+  });
+
+  // Side bursts for dramatic effect
+  setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 },
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 },
+    });
+  }, 200);
+}
+
+function shareOnTwitter(amount: string, txSignature: string | null) {
+  const text = `I just claimed ${formatTokenAmount(amount)} $OPEN tokens from @OpenFacilitator rewards!`;
+  const baseUrl = 'https://twitter.com/intent/tweet';
+
+  let twitterUrl: string;
+  if (txSignature) {
+    const txUrl = `https://solscan.io/tx/${txSignature}`;
+    twitterUrl = `${baseUrl}?text=${encodeURIComponent(text)}&url=${encodeURIComponent(txUrl)}`;
+  } else {
+    twitterUrl = `${baseUrl}?text=${encodeURIComponent(text)}`;
+  }
+
+  window.open(
+    twitterUrl,
+    'twitter-share',
+    'width=550,height=450,menubar=no,toolbar=no,resizable=yes,scrollbars=yes'
+  );
+}
+
 export function ClaimModal({
   open,
   onOpenChange,
@@ -47,6 +92,7 @@ export function ClaimModal({
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [claimedWallet, setClaimedWallet] = useState<string | null>(null);
+  const [txSignature, setTxSignature] = useState<string | null>(null);
 
   const { publicKey, connected, disconnect } = useWallet();
   const { setVisible } = useWalletModal();
@@ -76,7 +122,13 @@ export function ClaimModal({
 
       if (result.success) {
         setClaimedWallet(walletAddress);
+        // Store tx_signature if returned (will be present after 10-02 completes)
+        if (result.claim?.tx_signature) {
+          setTxSignature(result.claim.tx_signature);
+        }
         setStatus('success');
+        // Fire celebratory confetti
+        celebrateClaim();
         onSuccess?.();
       } else {
         setErrorMessage(result.error || 'Failed to initiate claim');
@@ -103,6 +155,7 @@ export function ClaimModal({
         setStatus('idle');
         setErrorMessage(null);
         setClaimedWallet(null);
+        setTxSignature(null);
         disconnect();
       }
       onOpenChange(newOpen);
@@ -195,25 +248,55 @@ export function ClaimModal({
 
           {status === 'success' && claimedWallet && (
             <>
-              <div className="mb-4 p-4 rounded-full bg-green-100 dark:bg-green-900/30">
-                <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+              <div className="mb-4 p-5 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40">
+                <Gift className="h-10 w-10 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Claim Initiated!</h3>
-              <p className="text-center text-sm text-muted-foreground mb-2">
-                Your reward will be sent to:
+              <h3 className="font-semibold text-xl mb-2">Congratulations!</h3>
+              <p className="text-center text-sm text-muted-foreground mb-4">
+                Your claim has been initiated
+              </p>
+              <div className="w-full p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 mb-4">
+                <p className="text-3xl font-bold text-green-700 dark:text-green-400 text-center">
+                  {formatTokenAmount(rewardAmount)} $OPEN
+                </p>
+              </div>
+              <p className="text-center text-sm text-muted-foreground mb-1">
+                Will be sent to:
               </p>
               <a
                 href={`https://solscan.io/account/${claimedWallet}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 font-mono text-sm text-primary hover:underline mb-6"
+                className="flex items-center justify-center gap-1 font-mono text-sm text-primary hover:underline mb-4"
               >
                 {truncateAddress(claimedWallet)}
                 <ExternalLink className="h-3 w-3" />
               </a>
-              <Button onClick={handleDone} className="w-full">
-                Done
-              </Button>
+              {txSignature && (
+                <a
+                  href={`https://solscan.io/tx/${txSignature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline mb-4"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  View transaction
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+              <div className="flex flex-col gap-3 w-full mt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => shareOnTwitter(rewardAmount, txSignature)}
+                  className="w-full"
+                >
+                  <Twitter className="h-4 w-4 mr-2" />
+                  Share on X
+                </Button>
+                <Button onClick={handleDone} className="w-full">
+                  Done
+                </Button>
+              </div>
             </>
           )}
 
