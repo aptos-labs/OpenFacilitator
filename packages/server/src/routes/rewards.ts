@@ -20,6 +20,7 @@ import {
   verifyEVMSignature,
   createEVMVerificationMessage,
 } from '../utils/evm-verify.js';
+import { createDailySnapshots } from '../db/volume-aggregation.js';
 
 const router: IRouter = Router();
 
@@ -220,6 +221,46 @@ router.delete('/addresses/:id', requireAuth, async (req: Request, res: Response)
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to delete address',
+    });
+  }
+});
+
+/**
+ * POST /snapshot
+ * Create daily volume snapshots (called by external cron scheduler)
+ * Requires CRON_SECRET header for authentication
+ */
+router.post('/snapshot', async (req: Request, res: Response) => {
+  try {
+    // Verify cron secret
+    const cronSecret = req.headers['x-cron-secret'];
+    if (!cronSecret || cronSecret !== process.env.CRON_SECRET) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Get campaign ID from request body
+    const { campaignId } = req.body;
+    if (!campaignId) {
+      res.json({ message: 'No campaign specified', processed: 0 });
+      return;
+    }
+
+    // Create snapshots for today (UTC)
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const processed = createDailySnapshots(campaignId, today);
+
+    res.json({
+      message: 'Snapshot complete',
+      processed,
+      date: today,
+      campaignId,
+    });
+  } catch (error) {
+    console.error('Error creating volume snapshots:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to create volume snapshots',
     });
   }
 });
