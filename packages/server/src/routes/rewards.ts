@@ -48,6 +48,7 @@ import {
   checkClaimEligibility,
   createOrGetClaimRecord,
 } from '../services/reward-claims.js';
+import { executeRewardTransfer } from '../services/reward-transfer.js';
 
 const router: IRouter = Router();
 
@@ -995,7 +996,13 @@ const initiateClaimSchema = z.object({
 
 /**
  * POST /claims/:id/initiate
- * Initiate a pending claim by providing the wallet address to receive tokens
+ * Initiate and execute a pending claim - atomic operation that:
+ * 1. Sets the claim wallet address
+ * 2. Executes the SPL token transfer
+ * 3. Updates claim status to completed with tx_signature
+ *
+ * This combines initiate + execute into one atomic operation.
+ * User clicks "Confirm Claim" once and receives their tokens.
  */
 router.post('/claims/:id/initiate', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -1052,12 +1059,12 @@ router.post('/claims/:id/initiate', requireAuth, async (req: Request, res: Respo
     }
 
     // Update claim with wallet address and set status to 'processing'
-    const updated = updateRewardClaim(claimId, {
+    const processingClaim = updateRewardClaim(claimId, {
       claim_wallet,
       status: 'processing',
     });
 
-    if (!updated) {
+    if (!processingClaim) {
       res.status(500).json({
         error: 'Internal server error',
         message: 'Failed to update claim',
@@ -1065,10 +1072,46 @@ router.post('/claims/:id/initiate', requireAuth, async (req: Request, res: Respo
       return;
     }
 
-    res.json({
-      success: true,
-      claim: updated,
+    // Execute the SPL token transfer immediately
+    const transferResult = await executeRewardTransfer({
+      recipientAddress: claim_wallet,
+      amount: claim.final_reward_amount,
     });
+
+    if (transferResult.success) {
+      // Transfer succeeded - update claim to completed with signature
+      const completedClaim = updateRewardClaim(claimId, {
+        status: 'completed',
+        tx_signature: transferResult.signature!,
+        claimed_at: new Date().toISOString(),
+      });
+
+      res.json({
+        success: true,
+        tx_signature: transferResult.signature,
+        claim: completedClaim,
+      });
+    } else {
+      // Transfer failed - determine if retryable or permanent failure
+      const isPermanent = transferResult.error?.includes('insufficient') ||
+                         transferResult.error?.includes('invalid') ||
+                         transferResult.error?.includes('Invalid');
+
+      if (isPermanent) {
+        // Permanent error - mark as failed
+        updateRewardClaim(claimId, { status: 'failed' });
+      } else {
+        // Transient error - revert to pending for retry
+        // Keep claim_wallet so user doesn't have to re-enter
+        updateRewardClaim(claimId, { status: 'pending' });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: transferResult.error || 'Transfer failed',
+        retryable: !isPermanent,
+      });
+    }
   } catch (error) {
     console.error('Error initiating claim:', error);
     res.status(500).json({
