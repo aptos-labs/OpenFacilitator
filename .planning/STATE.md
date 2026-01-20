@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 11 of 11 (Dashboard Integration)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-20 - Completed 11-01-PLAN.md
+Last activity: 2026-01-20 - Completed 11-02-PLAN.md
 
-Progress: [#########.] 90%
+Progress: [##########] 95%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: 3m 33s
-- Total execution time: 1.01 hours
+- Total plans completed: 18
+- Average duration: 3m 26s
+- Total execution time: 1.03 hours
 
 **By Phase:**
 
@@ -37,10 +37,10 @@ Progress: [#########.] 90%
 | 08-rewards-dashboard | 1 | 4m 0s | 4m 0s |
 | 09-wallet-connection | 1 | 4m 0s | 4m 0s |
 | 10-claims-engine | 3 | 8m 12s | 2m 44s |
-| 11-dashboard-integration | 1 | 2m 37s | 2m 37s |
+| 11-dashboard-integration | 2 | 4m 12s | 2m 6s |
 
 **Recent Trend:**
-- Last 5 plans: 10-01 (2m 29s), 10-02 (1m 43s), 10-03 (4m 0s), 11-01 (2m 37s)
+- Last 5 plans: 10-02 (1m 43s), 10-03 (4m 0s), 11-01 (2m 37s), 11-02 (1m 35s)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -101,6 +101,9 @@ Recent decisions affecting current work:
 | D-11-01-001 | Rewards link always visible in WalletDropdown (not conditional) | 11-01 |
 | D-11-01-002 | hasClaimable derived from ended campaign + eligibility check | 11-01 |
 | D-11-01-003 | Green pulsing badge for claimable indicator | 11-01 |
+| D-11-02-001 | Landing page shows sample progress bar as preview | 11-02 |
+| D-11-02-002 | How-it-works is collapsible to keep page clean | 11-02 |
+| D-11-02-003 | Tab state synced via URL searchParams for shareable links | 11-02 |
 
 ### Pending Todos
 
@@ -115,5 +118,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 11-01-PLAN.md
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
