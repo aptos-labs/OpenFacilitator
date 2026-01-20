@@ -1189,4 +1189,32 @@ router.get('/campaigns/:id/my-claim', requireAuth, async (req: Request, res: Res
   }
 });
 
+/**
+ * GET /claims/history
+ * Get current user's claim history across all campaigns
+ */
+router.get('/claims/history', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const claims = getRewardClaimsByUser(userId);
+
+    // Enrich with campaign info
+    const enrichedClaims = claims.map(claim => {
+      const campaign = getCampaignById(claim.campaign_id);
+      return {
+        ...claim,
+        campaign_name: campaign?.name ?? 'Unknown Campaign',
+      };
+    });
+
+    res.json({ claims: enrichedClaims });
+  } catch (error) {
+    console.error('Error getting claim history:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to get claim history',
+    });
+  }
+});
+
 export const rewardsRouter = router;

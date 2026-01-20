@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProgressDashboard } from '@/components/rewards/progress-dashboard';
 import { CampaignHistory } from '@/components/campaigns/campaign-history';
+import { ClaimHistory } from '@/components/rewards/claim-history';
 import { api } from '@/lib/api';
 import { useAuth } from '@/components/auth/auth-provider';
 
@@ -43,9 +44,15 @@ export default function RewardsPage() {
     queryFn: () => api.getCampaignHistory(),
   });
 
+  const { data: claimHistoryData, isLoading: claimHistoryLoading } = useQuery({
+    queryKey: ['claimHistory'],
+    queryFn: () => api.getClaimHistory(),
+  });
+
   const handleClaimSuccess = () => {
     // Refetch claim data after successful claim initiation
     queryClient.invalidateQueries({ queryKey: ['myClaim', activeCampaign?.campaign?.id] });
+    queryClient.invalidateQueries({ queryKey: ['claimHistory'] });
   };
 
   const isLoading = authLoading || campaignLoading;
@@ -103,6 +110,14 @@ export default function RewardsPage() {
                   </p>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Claim History */}
+            {!claimHistoryLoading && claimHistoryData?.claims && claimHistoryData.claims.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Your Claims</h2>
+                <ClaimHistory claims={claimHistoryData.claims} />
+              </div>
             )}
 
             {/* Campaign History */}

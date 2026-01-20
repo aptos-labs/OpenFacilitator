@@ -1325,6 +1325,12 @@ class ApiClient {
   }> {
     return this.request(`/api/rewards/campaigns/${campaignId}/eligibility`);
   }
+
+  async getClaimHistory(): Promise<{
+    claims: Array<RewardClaim & { campaign_name: string }>;
+  }> {
+    return this.request('/api/rewards/claims/history');
+  }
 }
 
 export const api = new ApiClient(API_BASE);
