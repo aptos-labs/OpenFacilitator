@@ -105,3 +105,25 @@ export function updateRewardClaim(
   if (result.changes === 0) return null;
   return getRewardClaimById(id);
 }
+
+/**
+ * Get total qualifying volume for a campaign
+ *
+ * Returns the sum of all users' volumes from snapshots for proportional reward calculation.
+ * This represents the total pool volume that rewards will be distributed across.
+ *
+ * @param campaignId - The campaign ID
+ * @returns Total volume as a string (atomic units)
+ */
+export function getTotalQualifyingVolume(campaignId: string): string {
+  const db = getDatabase();
+
+  const stmt = db.prepare(`
+    SELECT COALESCE(SUM(CAST(vs.volume AS INTEGER)), 0) as total_volume
+    FROM volume_snapshots vs
+    WHERE vs.campaign_id = ?
+  `);
+
+  const result = stmt.get(campaignId) as { total_volume: number };
+  return String(result.total_volume);
+}
