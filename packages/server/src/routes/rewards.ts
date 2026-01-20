@@ -394,7 +394,7 @@ router.get('/campaigns/active', requireAuth, async (req: Request, res: Response)
     const campaign = getPublishedCampaign();
 
     if (!campaign) {
-      res.json(null);
+      res.json({ campaign: null, totalVolume: '0' });
       return;
     }
 
@@ -414,9 +414,12 @@ router.get('/campaigns/active', requireAuth, async (req: Request, res: Response)
     };
 
     res.json({
-      ...campaign,
-      totalQualifyingVolume: String(volumeData.total_volume),
-      participantCount: volumeData.participant_count,
+      campaign: {
+        ...campaign,
+        totalQualifyingVolume: String(volumeData.total_volume),
+        participantCount: volumeData.participant_count,
+      },
+      totalVolume: String(volumeData.total_volume),
     });
   } catch (error) {
     console.error('Error getting active campaign:', error);

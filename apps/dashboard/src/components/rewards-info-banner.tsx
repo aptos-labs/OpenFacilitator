@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { EnrollmentModal } from '@/components/rewards/enrollment-modal';
 import { AddressList } from '@/components/rewards/address-list';
 import { api, type RewardsStatus } from '@/lib/api';
-import { ChevronDown, ChevronUp, Wallet } from 'lucide-react';
+import { ChevronDown, ChevronUp, Wallet, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export function RewardsInfoBanner() {
   const { isAuthenticated, isEnrolled, isFacilitatorOwner, refetchRewardsStatus } = useAuth();
@@ -56,6 +57,13 @@ export function RewardsInfoBanner() {
                 Enrolled
               </span>
             </div>
+            <Link
+              href="/rewards"
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+            >
+              View Progress
+              <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
           <p className="text-sm text-muted-foreground mt-2">
             Your facilitator volume is being tracked automatically.
@@ -106,14 +114,23 @@ export function RewardsInfoBanner() {
               Enrolled
             </span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            <span className="ml-1">{addresses.length} address{addresses.length !== 1 ? 'es' : ''}</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/rewards"
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+            >
+              View Progress
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <span className="ml-1">{addresses.length} address{addresses.length !== 1 ? 'es' : ''}</span>
+            </Button>
+          </div>
         </div>
 
         {expanded && (

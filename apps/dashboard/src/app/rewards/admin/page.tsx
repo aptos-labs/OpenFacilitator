@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { ChevronDown, Loader2, Plus, Trophy } from 'lucide-react';
 import { Navbar } from '@/components/navbar';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,6 @@ type ConfirmAction = {
 };
 
 export default function CampaignAdminPage() {
-  const router = useRouter();
   const { isAdmin, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -42,10 +41,9 @@ export default function CampaignAdminPage() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [endedExpanded, setEndedExpanded] = useState(false);
 
-  // Redirect non-admin users
+  // Return 404 for non-admin users (security: don't reveal admin page exists)
   if (!authLoading && !isAdmin) {
-    router.push('/rewards');
-    return null;
+    notFound();
   }
 
   const { data: campaigns, isLoading } = useQuery({
@@ -171,7 +169,7 @@ export default function CampaignAdminPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-4 py-12">
+      <main className="max-w-4xl mx-auto px-4 pt-24 pb-12">
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>

@@ -40,13 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [rewardsStatus, setRewardsStatus] = useState<RewardsStatus | null>(null);
-  const [rewardsLoading, setRewardsLoading] = useState(false);
+  const [rewardsChecked, setRewardsChecked] = useState(false);
   const [hasClaimable, setHasClaimable] = useState(false);
 
   const fetchRewardsStatus = useCallback(async () => {
     if (!session?.user) return;
 
-    setRewardsLoading(true);
     try {
       const status = await api.getRewardsStatus();
       setRewardsStatus(status);
@@ -79,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRewardsStatus(null);
       setHasClaimable(false);
     } finally {
-      setRewardsLoading(false);
+      setRewardsChecked(true);
     }
   }, [session?.user]);
 
@@ -90,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       // Clear rewards status when signed out
       setRewardsStatus(null);
+      setRewardsChecked(false);
       setHasClaimable(false);
     }
   }, [session?.user, isSigningOut, fetchRewardsStatus]);
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user: session?.user || null,
-        isLoading: isPending || isSigningOut || (isAuthenticated && rewardsLoading),
+        isLoading: isPending || isSigningOut || (isAuthenticated && !rewardsChecked),
         isAuthenticated,
         isAdmin: rewardsStatus?.isAdmin ?? false,
         isEnrolled: rewardsStatus?.isEnrolled ?? false,

@@ -10,18 +10,21 @@ import { AddressesTab } from './addresses-tab';
 import { HistoryTab } from './history-tab';
 import { useAuth } from '@/components/auth/auth-provider';
 
-const VALID_TABS = ['progress', 'addresses', 'history'] as const;
-type TabValue = (typeof VALID_TABS)[number];
-
 export function RewardsDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isFacilitatorOwner } = useAuth();
+
+  // Facilitator owners don't need addresses tab - their volume is tracked automatically
+  const showAddressesTab = !isFacilitatorOwner;
+  const validTabs = showAddressesTab
+    ? ['progress', 'addresses', 'history']
+    : ['progress', 'history'];
 
   // Read tab from URL or default to 'progress'
   const tabParam = searchParams.get('tab');
-  const currentTab: TabValue = VALID_TABS.includes(tabParam as TabValue)
-    ? (tabParam as TabValue)
+  const currentTab = validTabs.includes(tabParam as string)
+    ? tabParam!
     : 'progress';
 
   const handleTabChange = (value: string) => {
@@ -53,9 +56,9 @@ export function RewardsDashboard() {
 
       {/* Tabbed Content */}
       <Tabs value={currentTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={`grid w-full ${showAddressesTab ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="progress">Progress</TabsTrigger>
-          <TabsTrigger value="addresses">Addresses</TabsTrigger>
+          {showAddressesTab && <TabsTrigger value="addresses">Addresses</TabsTrigger>}
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
@@ -63,9 +66,11 @@ export function RewardsDashboard() {
           <ProgressTab />
         </TabsContent>
 
-        <TabsContent value="addresses" className="mt-6">
-          <AddressesTab />
-        </TabsContent>
+        {showAddressesTab && (
+          <TabsContent value="addresses" className="mt-6">
+            <AddressesTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="history" className="mt-6">
           <HistoryTab />
