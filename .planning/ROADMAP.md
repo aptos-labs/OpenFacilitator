@@ -83,17 +83,17 @@ Plans:
 - [x] 15-01-PLAN.md — Create refund documentation page and sidebar navigation entry
 
 ### Phase 16: Investigate Whitelabel Volume Tracking
-**Goal**: Identify and fix why users with white-labeled facilitators see no volume tracked on rewards page
-**Depends on**: Nothing (bug investigation, independent)
-**Requirements**: TBD
+**Goal**: Fix missing volume tracking for users with white-labeled facilitators by creating enrollment markers
+**Depends on**: Nothing (bug fix, independent)
+**Requirements**: FIX-01 (Create missing facilitator markers), FIX-02 (Auto-create on new facilitators)
 **Success Criteria** (what must be TRUE):
-  1. Root cause identified for missing volume tracking
+  1. Root cause identified for missing volume tracking (missing chain_type='facilitator' markers)
   2. White-labeled facilitator volume correctly attributed to owner
   3. Rewards page displays accurate volume for users with multiple facilitators
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 16-01: [TBD during planning]
+- [ ] 16-01-PLAN.md — Create facilitator enrollment markers and integrate into creation flow
 
 ## Progress
 
@@ -105,4 +105,4 @@ Plans:
 | 13. SDK Type Guards & Utilities | v1.1 | 1/1 | ✓ Complete | 2026-01-21 |
 | 14. SDK Method Updates | v1.1 | 1/1 | ✓ Complete | 2026-01-21 |
 | 15. Refund Documentation | v1.1 | 1/1 | ✓ Complete | 2026-01-21 |
-| 16. Investigate Whitelabel Volume Tracking | v1.1 | 0/TBD | Not started | - |
+| 16. Investigate Whitelabel Volume Tracking | v1.1 | 0/1 | Not started | - |
