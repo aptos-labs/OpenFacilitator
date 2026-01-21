@@ -19,7 +19,7 @@ See: milestones/v1.0-ROADMAP.md for archived v1.0 phase details.
 **Milestone Goal:** SDK supports x402 v2 format with type-safe discrimination; merchants have refund documentation.
 
 - [x] **Phase 12: SDK Type Definitions** - Define versioned PaymentPayload and PaymentRequirements types
-- [ ] **Phase 13: SDK Type Guards & Utilities** - Type guards and helper functions for version handling
+- [x] **Phase 13: SDK Type Guards & Utilities** - Type guards and helper functions for version handling
 - [ ] **Phase 14: SDK Method Updates** - Update verify/settle methods and exports
 - [ ] **Phase 15: Refund Documentation** - Comprehensive refund guide for merchants
 - [ ] **Phase 16: Investigate Whitelabel Volume Tracking** - Debug why user with 2 white-labeled facilitators sees no volume on rewards page
@@ -52,7 +52,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 13-01-PLAN.md — Add type guards (isPaymentPayloadV1/V2, isPaymentRequirementsV1/V2) and utilities (getSchemeNetwork, getVersion, assertNever)
+- [x] 13-01-PLAN.md — Add type guards (isPaymentPayloadV1/V2, isPaymentRequirementsV1/V2) and utilities (getSchemeNetwork, getVersion, assertNever)
 
 ### Phase 14: SDK Method Updates
 **Goal**: SDK methods handle both v1 and v2 formats; all types exported
@@ -102,7 +102,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 12. SDK Type Definitions | v1.1 | 1/1 | ✓ Complete | 2026-01-20 |
-| 13. SDK Type Guards & Utilities | v1.1 | 0/1 | Not started | - |
+| 13. SDK Type Guards & Utilities | v1.1 | 1/1 | ✓ Complete | 2026-01-21 |
 | 14. SDK Method Updates | v1.1 | 0/TBD | Not started | - |
 | 15. Refund Documentation | v1.1 | 0/TBD | Not started | - |
 | 16. Investigate Whitelabel Volume Tracking | v1.1 | 0/TBD | Not started | - |
