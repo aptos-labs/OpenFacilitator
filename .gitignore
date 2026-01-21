@@ -45,3 +45,4 @@ coverage/
 .cache/
 
 .github/workflows/integration-tests.yml
+*.tsbuildinfo
