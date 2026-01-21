@@ -6,7 +6,7 @@
     "dev": "next dev --port 5001",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@mdx-js/loader": "^3.1.1",
