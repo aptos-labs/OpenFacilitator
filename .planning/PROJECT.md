@@ -8,6 +8,15 @@ A rewards program that pays users $OPEN tokens (Solana SPL) for volume processed
 
 Users who process volume through OpenFacilitator get rewarded with $OPEN tokens. Hit threshold, get tokens. Own a white-label facilitator, get 2x.
 
+## Current Milestone: v1.1 SDK & Docs
+
+**Goal:** Update SDK for x402 v2 compliance and add refund documentation.
+
+**Target features:**
+- SDK PaymentPayload types for v1 and v2 formats
+- verify() and settle() methods handle both formats
+- Refund how-to guide for merchants
+
 ## Current State
 
 **Shipped:** v1.0 Rewards Program (2026-01-20)
@@ -45,9 +54,14 @@ Users who process volume through OpenFacilitator get rewarded with $OPEN tokens.
 
 ### Active
 
-- [ ] Dashboard features spotlight for discoverability (Refunds, Facilitator, Rewards cards)
-- [ ] Email notifications when threshold reached or claim available
-- [ ] Sybil cluster detection dashboard for admins
+- [ ] SDK V2 compliance — support x402 v2 PaymentPayload format
+- [ ] Refund user guide — how-to documentation for merchants
+
+### Future
+
+- Dashboard features spotlight for discoverability
+- Email notifications when threshold reached or claim available
+- Sybil cluster detection dashboard for admins
 
 ### Out of Scope
 
@@ -96,4 +110,4 @@ Users who process volume through OpenFacilitator get rewarded with $OPEN tokens.
 | Single active campaign | Simplicity, clear rules for users | ✓ Good |
 
 ---
-*Last updated: 2026-01-20 after v1.0 milestone*
+*Last updated: 2026-01-20 after v1.1 milestone started*

@@ -5,16 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Users who process volume through OpenFacilitator get rewarded with $OPEN tokens
-**Current focus:** Planning next milestone (v1.1)
+**Current focus:** v1.1 SDK & Docs
 
 ## Current Position
 
-Milestone: v1.0 complete (shipped 2026-01-20)
-Next milestone: v1.1 (not started)
-Status: Ready for `/gsd:new-milestone`
-Last activity: 2026-01-20 — v1.0 milestone archived
+Milestone: v1.1 SDK & Docs
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-01-20 — Milestone v1.1 started
 
-Progress: Milestone complete, starting fresh
+Progress: Ready for roadmap
 
 ## Performance Metrics
 
@@ -23,11 +24,6 @@ Progress: Milestone complete, starting fresh
 - Average duration: 3m 23s
 - Total execution time: 1.07 hours
 - Phases: 11
-
-**Timeline:**
-- Started: 2026-01-19
-- Shipped: 2026-01-20
-- Duration: 2 days
 
 ## Accumulated Context
 
@@ -38,7 +34,9 @@ v1.0 decisions archived in milestones/v1.0-ROADMAP.md.
 
 ### Pending Todos
 
-- Dashboard features spotlight (captured from user request)
+- Dashboard features spotlight (deferred to future)
+- Email notifications (deferred to future)
+- Sybil detection dashboard (deferred to future)
 
 ### Blockers/Concerns
 
@@ -48,5 +46,5 @@ v1.0 decisions archived in milestones/v1.0-ROADMAP.md.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: v1.0 milestone archived
-Resume with: `/gsd:new-milestone` to start v1.1
+Stopped at: Defining v1.1 requirements
+Resume with: Continue requirements definition
