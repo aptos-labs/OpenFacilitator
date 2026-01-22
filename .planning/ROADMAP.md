@@ -37,9 +37,9 @@ See: milestones/v1.1-ROADMAP.md for archived v1.1 phase details.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 17-01-PLAN.md — Replace WalletDropdown with UserMenu in header
-- [ ] 17-02-PLAN.md — Add payment history API endpoint
-- [ ] 17-03-PLAN.md — Create Subscriptions page with status, billing, and history
+- [x] 17-01-PLAN.md — Replace WalletDropdown with UserMenu in header
+- [x] 17-02-PLAN.md — Add payment history API endpoint
+- [x] 17-03-PLAN.md — Create Subscriptions page with status, billing, and history
 
 **Success Criteria:**
 
@@ -123,7 +123,7 @@ Plans:
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 17 | UI Cleanup & Subscriptions Section | 8 | Planned |
+| 17 | UI Cleanup & Subscriptions Section | 8 | Complete |
 | 18 | Multi-Chain Wallet Infrastructure | 4 | Pending |
 | 19 | Chain Preference Logic | 3 | Pending |
 | 20 | Recurring Payment Engine | 6 | Pending |
@@ -133,4 +133,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-22*
-*Last updated: 2026-01-22*
+*Last updated: 2026-01-22 — Phase 17 complete*

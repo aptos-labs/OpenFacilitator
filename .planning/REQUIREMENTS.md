@@ -9,17 +9,17 @@ Requirements for Subscription Wallet Overhaul milestone.
 
 ### UI Cleanup
 
-- [ ] **UICL-01**: Legacy embedded wallet removed from app header
-- [ ] **UICL-02**: Existing embedded wallet component archived (not deleted)
-- [ ] **UICL-03**: No orphaned wallet connection code in header
+- [x] **UICL-01**: Legacy embedded wallet removed from app header
+- [x] **UICL-02**: Existing embedded wallet component archived (not deleted)
+- [x] **UICL-03**: No orphaned wallet connection code in header
 
 ### Subscriptions Dashboard
 
-- [ ] **SUBD-01**: Subscriptions tab added to dashboard navigation
-- [ ] **SUBD-02**: Subscription status displayed (active/inactive/pending)
-- [ ] **SUBD-03**: Next billing date shown
-- [ ] **SUBD-04**: Subscription tier and pricing displayed
-- [ ] **SUBD-05**: Payment history with date, amount, chain, tx hash
+- [x] **SUBD-01**: Subscriptions tab added to dashboard navigation
+- [x] **SUBD-02**: Subscription status displayed (active/inactive/pending)
+- [x] **SUBD-03**: Next billing date shown
+- [x] **SUBD-04**: Subscription tier and pricing displayed
+- [x] **SUBD-05**: Payment history with date, amount, chain, tx hash
 
 ### Multi-Chain Wallets
 
@@ -80,14 +80,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UICL-01 | Phase 17 | Pending |
-| UICL-02 | Phase 17 | Pending |
-| UICL-03 | Phase 17 | Pending |
-| SUBD-01 | Phase 17 | Pending |
-| SUBD-02 | Phase 17 | Pending |
-| SUBD-03 | Phase 17 | Pending |
-| SUBD-04 | Phase 17 | Pending |
-| SUBD-05 | Phase 17 | Pending |
+| UICL-01 | Phase 17 | Complete |
+| UICL-02 | Phase 17 | Complete |
+| UICL-03 | Phase 17 | Complete |
+| SUBD-01 | Phase 17 | Complete |
+| SUBD-02 | Phase 17 | Complete |
+| SUBD-03 | Phase 17 | Complete |
+| SUBD-04 | Phase 17 | Complete |
+| SUBD-05 | Phase 17 | Complete |
 | WALL-01 | Phase 18 | Pending |
 | WALL-02 | Phase 18 | Pending |
 | WALL-03 | Phase 18 | Pending |
