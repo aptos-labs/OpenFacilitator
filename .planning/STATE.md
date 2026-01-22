@@ -10,20 +10,20 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Milestone: v1.2 Subscription Wallet Overhaul
-Phase: 18 - Multi-Chain Wallet Infrastructure
-Plan: 2 of 2 complete
-Status: Phase verified and complete
-Last activity: 2026-01-22 — Phase 18 verified (8/8 must-haves)
+Phase: 19 - Chain Preference Logic
+Plan: 1 of 2 complete
+Status: In progress
+Last activity: 2026-01-22 — Completed 19-01-PLAN.md
 
-Progress: [████████░░░░░░░░░░░░] 40%
+Progress: [█████████░░░░░░░░░░░] 44%
 
 ## Phase Summary
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 17 | UI Cleanup & Subscriptions Section | 8 | Complete ✓ |
-| 18 | Multi-Chain Wallet Infrastructure | 4 | Complete ✓ |
-| 19 | Chain Preference Logic | 3 | Next |
+| 17 | UI Cleanup & Subscriptions Section | 8 | Complete |
+| 18 | Multi-Chain Wallet Infrastructure | 4 | Complete |
+| 19 | Chain Preference Logic | 3 | In Progress (1/2 plans) |
 | 20 | Recurring Payment Engine | 6 | Pending |
 | 21 | Notifications & Edge Cases | 4 | Pending |
 
@@ -42,14 +42,14 @@ Progress: [████████░░░░░░░░░░░░] 40%
 - Phases: 5 (Phases 12-16 complete)
 
 **v1.2 Velocity:**
-- Plans completed: 5
-- Average duration: 2m 39s
-- Total execution time: 13m 36s
+- Plans completed: 6
+- Average duration: 2m 44s
+- Total execution time: 17m 36s
 - Phases: 5 (Phases 17-21 planned)
 
 **Cumulative:**
-- Total plans: 29
-- Total phases: 21 (18 complete, 3 pending)
+- Total plans: 30
+- Total phases: 21 (18 complete, 3 in progress/pending)
 - Milestones shipped: 2
 
 ## Accumulated Context
@@ -78,6 +78,7 @@ v1.2 decisions:
 - Side-by-side wallet cards (Base first, Solana second)
 - Manual balance refresh only (no auto-polling)
 - Chain logo letter fallback (no image assets needed)
+- Default preference calculation: payment history > wallet balance > solana
 
 ### Pending Todos
 
@@ -95,5 +96,5 @@ v1.2 decisions:
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Phase 18 verified and complete
-Resume with: `/gsd:discuss-phase 19`
+Stopped at: Completed 19-01-PLAN.md
+Resume with: `/gsd:execute-plan 19-02`
