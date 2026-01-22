@@ -193,6 +193,9 @@ export default function Home() {
                   {"\n"}    asset: <span className="text-[#a5d6ff]">'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'</span>,
                   {"\n"}    payTo: <span className="text-[#a5d6ff]">'0xYourAddress'</span>,
                   {"\n"}  {"}"}),
+                  {"\n"}  <span className="text-[#d2a8ff]">refundProtection</span>: {"{"}
+                  {"\n"}    apiKey: process.env.<span className="text-[#79c0ff]">REFUND_API_KEY</span>,
+                  {"\n"}  {"}"},
                   {"\n"}{"}"}), <span className="text-[#ff7b72]">async</span> (c) {"=>"} {"{"}
                   {"\n"}  <span className="text-[#8b949e]">{"// Payment verified & settled automatically"}</span>
                   {"\n"}  <span className="text-[#ff7b72]">return</span> c.<span className="text-[#d2a8ff]">json</span>({"{"} success: <span className="text-[#79c0ff]">true</span> {"}"});
@@ -214,6 +217,9 @@ export default function Home() {
                   {"\n"}    asset: <span className="text-[#a5d6ff]">'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'</span>,
                   {"\n"}    payTo: <span className="text-[#a5d6ff]">'0xYourAddress'</span>,
                   {"\n"}  {"}"}),
+                  {"\n"}  <span className="text-[#d2a8ff]">refundProtection</span>: {"{"}
+                  {"\n"}    apiKey: process.env.<span className="text-[#79c0ff]">REFUND_API_KEY</span>,
+                  {"\n"}  {"}"},
                   {"\n"}{"}"});
                   {"\n\n"}
                   app.<span className="text-[#d2a8ff]">post</span>(<span className="text-[#a5d6ff]">'/api/resource'</span>, paymentMiddleware, <span className="text-[#ff7b72]">async</span> (req, res) {"=>"} {"{"}
@@ -225,17 +231,22 @@ export default function Home() {
               {codeTab === 'sdk' && (
                 <code className="text-[#c9d1d9]">
                   <span className="text-[#ff7b72]">import</span>{" { "}
-                  <span className="text-[#ffa657]">OpenFacilitator</span>{" } "}
+                  <span className="text-[#ffa657]">createPaymentMiddleware</span>{" } "}
                   <span className="text-[#ff7b72]">from</span>
                   <span className="text-[#a5d6ff]">{" '@openfacilitator/sdk'"}</span>;
                   {"\n\n"}
-                  <span className="text-[#ff7b72]">const</span> facilitator = <span className="text-[#ff7b72]">new</span> <span className="text-[#ffa657]">OpenFacilitator</span>();
-                  {"\n\n"}
-                  <span className="text-[#ff7b72]">const</span> requirements = {"{"} scheme, network, maxAmountRequired, asset, payTo {"}"};
-                  {"\n\n"}
-                  <span className="text-[#ff7b72]">const</span> {"{"} isValid {"}"} = <span className="text-[#ff7b72]">await</span> facilitator.<span className="text-[#d2a8ff]">verify</span>(payment, requirements);
-                  {"\n"}
-                  <span className="text-[#ff7b72]">const</span> {"{"} transaction {"}"} = <span className="text-[#ff7b72]">await</span> facilitator.<span className="text-[#d2a8ff]">settle</span>(payment, requirements);
+                  <span className="text-[#ff7b72]">const</span> paymentMiddleware = <span className="text-[#d2a8ff]">createPaymentMiddleware</span>({"{"}
+                  {"\n"}  <span className="text-[#d2a8ff]">getRequirements</span>: () {"=>"} ({"{"}
+                  {"\n"}    scheme: <span className="text-[#a5d6ff]">'exact'</span>,
+                  {"\n"}    network: <span className="text-[#a5d6ff]">'base'</span>,
+                  {"\n"}    maxAmountRequired: <span className="text-[#a5d6ff]">'1000000'</span>,
+                  {"\n"}    asset: <span className="text-[#a5d6ff]">'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'</span>,
+                  {"\n"}    payTo: <span className="text-[#a5d6ff]">'0xYourAddress'</span>,
+                  {"\n"}  {"}"}),
+                  {"\n"}  <span className="text-[#d2a8ff]">refundProtection</span>: {"{"}
+                  {"\n"}    apiKey: process.env.<span className="text-[#79c0ff]">REFUND_API_KEY</span>,
+                  {"\n"}  {"}"},
+                  {"\n"}{"}"});
                 </code>
               )}
             </pre>

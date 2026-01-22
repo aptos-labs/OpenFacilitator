@@ -176,6 +176,12 @@ export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionPro
     return { apiKey: result.apiKey };
   }, [myResourceOwner]);
 
+  const handleRenameServer = useCallback(async (serverId: string, name: string) => {
+    if (!myResourceOwner) return;
+    await api.renameMyServer(myResourceOwner.id, serverId, name);
+    queryClient.invalidateQueries({ queryKey: ['myServers', myResourceOwner.id] });
+  }, [myResourceOwner, queryClient]);
+
   // Claim handlers
   const handleApproveClaim = useCallback(async (claimId: string) => {
     if (!myResourceOwner) return;
@@ -305,6 +311,7 @@ export function RefundsSection({ facilitatorId, facilitator }: RefundsSectionPro
                       onRegisterServer={handleRegisterServer}
                       onDeleteServer={handleDeleteServer}
                       onRegenerateApiKey={handleRegenerateApiKey}
+                      onRenameServer={handleRenameServer}
                     />
                   )}
 

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Pencil,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ interface RegisteredServersProps {
   onRegisterServer: (url: string, name?: string) => Promise<{ apiKey?: string }>;
   onDeleteServer: (serverId: string) => Promise<void>;
   onRegenerateApiKey: (serverId: string) => Promise<{ apiKey?: string }>;
+  onRenameServer?: (serverId: string, name: string) => Promise<void>;
 }
 
 export function RegisteredServers({
@@ -47,6 +49,7 @@ export function RegisteredServers({
   onRegisterServer,
   onDeleteServer,
   onRegenerateApiKey,
+  onRenameServer,
 }: RegisteredServersProps) {
   const [isAddServerOpen, setIsAddServerOpen] = useState(false);
   const [serverUrl, setServerUrl] = useState('');
@@ -55,6 +58,11 @@ export function RegisteredServers({
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Rename state
+  const [renameServer, setRenameServer] = useState<RegisteredServer | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -81,6 +89,23 @@ export function RegisteredServers({
     const result = await onRegenerateApiKey(serverId);
     if (result.apiKey) {
       setNewApiKey(result.apiKey);
+    }
+  };
+
+  const handleRenameClick = (server: RegisteredServer) => {
+    setRenameServer(server);
+    setRenameValue(server.name || '');
+  };
+
+  const handleRename = async () => {
+    if (!renameServer || !onRenameServer) return;
+    setIsRenaming(true);
+    try {
+      await onRenameServer(renameServer.id, renameValue);
+      setRenameServer(null);
+      setRenameValue('');
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -139,6 +164,12 @@ export function RegisteredServers({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {onRenameServer && (
+                        <DropdownMenuItem onClick={() => handleRenameClick(server)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Rename
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => handleRegenerate(server.id)}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Regenerate API Key
@@ -246,6 +277,35 @@ export function RegisteredServers({
           </div>
           <DialogFooter>
             <Button onClick={() => setNewApiKey(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Server Dialog */}
+      <Dialog open={!!renameServer} onOpenChange={() => setRenameServer(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename API Key</DialogTitle>
+            <DialogDescription>
+              Give this API key a descriptive name.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="renameName">Name</Label>
+            <Input
+              id="renameName"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="Production Server"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameServer(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRename} disabled={isRenaming}>
+              {isRenaming ? 'Saving...' : 'Save'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

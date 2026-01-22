@@ -1162,6 +1162,13 @@ class ApiClient {
     });
   }
 
+  async renameMyServer(resourceOwnerId: string, serverId: string, name: string): Promise<RegisteredServer> {
+    return this.request(`/api/resource-owners/${resourceOwnerId}/servers/${serverId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  }
+
   async getMyClaims(resourceOwnerId: string, status?: string): Promise<{ claims: Claim[]; stats: ClaimStats }> {
     const url = status && status !== 'all'
       ? `/api/resource-owners/${resourceOwnerId}/claims?status=${status}`
