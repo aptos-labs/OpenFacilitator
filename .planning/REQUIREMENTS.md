@@ -80,37 +80,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UICL-01 | Pending | Pending |
-| UICL-02 | Pending | Pending |
-| UICL-03 | Pending | Pending |
-| SUBD-01 | Pending | Pending |
-| SUBD-02 | Pending | Pending |
-| SUBD-03 | Pending | Pending |
-| SUBD-04 | Pending | Pending |
-| SUBD-05 | Pending | Pending |
-| WALL-01 | Pending | Pending |
-| WALL-02 | Pending | Pending |
-| WALL-03 | Pending | Pending |
-| WALL-04 | Pending | Pending |
-| PREF-01 | Pending | Pending |
-| PREF-02 | Pending | Pending |
-| PREF-03 | Pending | Pending |
-| RECR-01 | Pending | Pending |
-| RECR-02 | Pending | Pending |
-| RECR-03 | Pending | Pending |
-| RECR-04 | Pending | Pending |
-| RECR-05 | Pending | Pending |
-| RECR-06 | Pending | Pending |
-| NOTF-01 | Pending | Pending |
-| NOTF-02 | Pending | Pending |
-| NOTF-03 | Pending | Pending |
-| NOTF-04 | Pending | Pending |
+| UICL-01 | Phase 17 | Pending |
+| UICL-02 | Phase 17 | Pending |
+| UICL-03 | Phase 17 | Pending |
+| SUBD-01 | Phase 17 | Pending |
+| SUBD-02 | Phase 17 | Pending |
+| SUBD-03 | Phase 17 | Pending |
+| SUBD-04 | Phase 17 | Pending |
+| SUBD-05 | Phase 17 | Pending |
+| WALL-01 | Phase 18 | Pending |
+| WALL-02 | Phase 18 | Pending |
+| WALL-03 | Phase 18 | Pending |
+| WALL-04 | Phase 18 | Pending |
+| PREF-01 | Phase 19 | Pending |
+| PREF-02 | Phase 19 | Pending |
+| PREF-03 | Phase 19 | Pending |
+| RECR-01 | Phase 20 | Pending |
+| RECR-02 | Phase 20 | Pending |
+| RECR-03 | Phase 20 | Pending |
+| RECR-04 | Phase 20 | Pending |
+| RECR-05 | Phase 20 | Pending |
+| RECR-06 | Phase 20 | Pending |
+| NOTF-01 | Phase 21 | Pending |
+| NOTF-02 | Phase 21 | Pending |
+| NOTF-03 | Phase 21 | Pending |
+| NOTF-04 | Phase 21 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 25 total
-- Mapped to phases: 0
-- Unmapped: 25 ⚠️
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-22 after initial definition*
+*Last updated: 2026-01-22 after roadmap creation*

@@ -10,12 +10,22 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Milestone: v1.2 Subscription Wallet Overhaul
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-01-22 — Milestone v1.2 started
+Phase: 17 - UI Cleanup & Subscriptions Section
+Plan: Not started
+Status: Roadmap created, awaiting plan creation
+Last activity: 2026-01-22 — Roadmap created for v1.2
 
 Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
+
+## Phase Summary
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 17 | UI Cleanup & Subscriptions Section | 8 | Next |
+| 18 | Multi-Chain Wallet Infrastructure | 4 | Pending |
+| 19 | Chain Preference Logic | 3 | Pending |
+| 20 | Recurring Payment Engine | 6 | Pending |
+| 21 | Notifications & Edge Cases | 4 | Pending |
 
 ## Performance Metrics
 
@@ -31,9 +41,13 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 - Total execution time: 14m 50s
 - Phases: 5 (Phases 12-16 complete)
 
+**v1.2 Velocity:**
+- Plans completed: 0
+- Phases: 5 (Phases 17-21 planned)
+
 **Cumulative:**
 - Total plans: 24
-- Total phases: 16
+- Total phases: 21 (16 complete, 5 planned)
 - Milestones shipped: 2
 
 ## Accumulated Context
@@ -43,6 +57,7 @@ Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 All milestones archived:
 - v1.0 MVP: milestones/v1.0-ROADMAP.md
 - v1.1 SDK & Docs: milestones/v1.1-ROADMAP.md
+- v1.2 Subscription Wallet Overhaul: .planning/ROADMAP.md (active)
 
 ### Decisions
 
@@ -50,20 +65,30 @@ See PROJECT.md Key Decisions table for full history.
 v1.0 decisions archived in milestones/v1.0-ROADMAP.md.
 v1.1 decisions archived in milestones/v1.1-ROADMAP.md.
 
+v1.2 pending decisions:
+- Show wallet addresses directly (power user friendly)
+- 7-day grace period (industry standard)
+- Pre-fund any amount (user flexibility)
+- No mid-cycle refunds (simplicity)
+- Prominent chain preference toggle (discoverability)
+
 ### Pending Todos
 
 - Dashboard features spotlight (deferred to future)
 - Email notifications (deferred to future)
 - Sybil detection dashboard (deferred to future)
+- Prorated refunds (deferred to future)
+- Fund via checkout (deferred to future)
 
 ### Blockers/Concerns
 
 - **Pre-Launch:** Rewards wallet must be funded before claims go live (March 2026)
 - **Pre-Launch:** CRON_SECRET env var for volume snapshot cron jobs
-- **v1.2:** Legacy embedded wallet removal needs careful cleanup
+- **v1.2:** Legacy embedded wallet removal needs careful cleanup (Phase 17)
+- **v1.2:** Base wallet implementation alongside existing Solana (Phase 18)
 
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Defining v1.2 requirements
-Resume with: Complete requirements definition, then `/gsd:plan-phase [N]`
+Stopped at: Roadmap created for v1.2
+Resume with: `/gsd:plan-phase 17`
