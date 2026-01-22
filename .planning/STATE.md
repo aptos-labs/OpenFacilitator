@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 Milestone: v1.2 Subscription Wallet Overhaul
 Phase: 20 - Recurring Payment Engine
-Plan: 1 of 3 complete
-Status: In progress
-Last activity: 2026-01-22 — Completed 20-01-PLAN.md
+Plan: 3 of 3 complete
+Status: Phase complete
+Last activity: 2026-01-22 — Completed 20-03-PLAN.md
 
-Progress: [█████████████░░░░░░░] 65%
+Progress: [███████████████░░░░░] 71%
 
 ## Phase Summary
 
@@ -24,7 +24,7 @@ Progress: [█████████████░░░░░░░] 65%
 | 17 | UI Cleanup & Subscriptions Section | 8 | Complete ✓ |
 | 18 | Multi-Chain Wallet Infrastructure | 4 | Complete ✓ |
 | 19 | Chain Preference Logic | 3 | Complete ✓ |
-| 20 | Recurring Payment Engine | 6 | In progress (1/3 plans) |
+| 20 | Recurring Payment Engine | 6 | Complete ✓ |
 | 21 | Notifications & Edge Cases | 4 | Pending |
 
 ## Performance Metrics
@@ -42,14 +42,14 @@ Progress: [█████████████░░░░░░░] 65%
 - Phases: 5 (Phases 12-16 complete)
 
 **v1.2 Velocity:**
-- Plans completed: 8
-- Average duration: 2m 42s
-- Total execution time: 22m 39s
+- Plans completed: 10
+- Average duration: 3m 0s
+- Total execution time: 32m 48s
 - Phases: 5 (Phases 17-21 planned)
 
 **Cumulative:**
-- Total plans: 32
-- Total phases: 21 (19 complete, 2 pending)
+- Total plans: 34
+- Total phases: 21 (20 complete, 1 pending)
 - Milestones shipped: 2
 
 ## Accumulated Context
@@ -85,6 +85,13 @@ v1.2 decisions:
 - Log all payment attempts (not just successes) for debugging and retry logic
 - is_fallback flag tracks when payment used alternate chain
 - Subscription extension only after successful payment
+- 7-day grace period starts immediately when subscription expires
+- Billing cron uses x-cron-secret header (matches rewards.ts pattern)
+- State field added to status response (active/pending/inactive/never)
+- Instant reactivation only available during grace period window
+- CSV export uses client-side generation (no server endpoint needed)
+- Grace period urgency changes to red at 2 days remaining
+- Payment attempt type distinct from subscription record type
 
 ### Pending Todos
 
@@ -102,6 +109,6 @@ v1.2 decisions:
 
 ## Session Continuity
 
-Last session: 2026-01-22 20:52 UTC
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-01-22 21:02 UTC
+Stopped at: Completed 20-03-PLAN.md (Phase 20 complete)
 Resume file: None
