@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 Milestone: v1.2 Subscription Wallet Overhaul
 Phase: 20 - Recurring Payment Engine
-Plan: 3 of 3 complete
+Plan: 4 of 4 complete
 Status: Phase complete
-Last activity: 2026-01-22 — Completed 20-03-PLAN.md
+Last activity: 2026-01-22 — Completed 20-04-PLAN.md (gap closure)
 
-Progress: [███████████████░░░░░] 71%
+Progress: [████████████████░░░░] 74%
 
 ## Phase Summary
 
@@ -42,13 +42,13 @@ Progress: [███████████████░░░░░] 71%
 - Phases: 5 (Phases 12-16 complete)
 
 **v1.2 Velocity:**
-- Plans completed: 10
+- Plans completed: 11
 - Average duration: 3m 0s
-- Total execution time: 32m 48s
+- Total execution time: 36m 48s
 - Phases: 5 (Phases 17-21 planned)
 
 **Cumulative:**
-- Total plans: 34
+- Total plans: 35
 - Total phases: 21 (20 complete, 1 pending)
 - Milestones shipped: 2
 
@@ -92,6 +92,8 @@ v1.2 decisions:
 - CSV export uses client-side generation (no server endpoint needed)
 - Grace period urgency changes to red at 2 days remaining
 - Payment attempt type distinct from subscription record type
+- Separate makeBaseX402Payment function instead of unified handler (clear separation of Solana vs EVM logic)
+- Transaction signing happens client-side before x402 payload submission
 
 ### Pending Todos
 
@@ -106,10 +108,9 @@ v1.2 decisions:
 - **Pre-Launch:** Rewards wallet must be funded before claims go live (March 2026)
 - **Pre-Launch:** CRON_SECRET env var for volume snapshot cron jobs AND subscription billing cron
 - **Pre-Launch:** External cron scheduler needed for daily billing (midnight UTC)
-- **Phase 20:** Base chain payments not yet supported in x402-client (Solana only)
 
 ## Session Continuity
 
-Last session: 2026-01-22 21:02 UTC
-Stopped at: Completed 20-03-PLAN.md (Phase 20 complete)
+Last session: 2026-01-22 21:30 UTC
+Stopped at: Completed 20-04-PLAN.md (Phase 20 complete - gap closure)
 Resume file: None
