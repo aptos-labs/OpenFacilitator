@@ -130,6 +130,12 @@ Plans:
 
 **Requirements:** NOTF-01, NOTF-02, NOTF-03, NOTF-04
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 21-01-PLAN.md — Backend notification infrastructure (DB, API, billing integration)
+- [ ] 21-02-PLAN.md — Frontend notification center (bell icon, popover, components)
+
 **Success Criteria:**
 
 1. User sees confirmation notification when subscription payment succeeds
@@ -153,4 +159,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-01-22*
-*Last updated: 2026-01-22 — Phase 20 complete (4 plans)*
+*Last updated: 2026-01-22 — Phase 21 planned (2 plans)*
