@@ -45,10 +45,10 @@ Requirements for Subscription Wallet Overhaul milestone.
 
 ### Notifications
 
-- [ ] **NOTF-01**: Payment successful confirmation shown
-- [ ] **NOTF-02**: Low balance warning when balance < 2x subscription cost
-- [ ] **NOTF-03**: Payment failed / insufficient funds alert
-- [ ] **NOTF-04**: Subscription expiring reminder (3 days before)
+- [x] **NOTF-01**: Payment successful confirmation shown
+- [x] **NOTF-02**: Low balance warning when balance < 2x subscription cost
+- [x] **NOTF-03**: Payment failed / insufficient funds alert
+- [x] **NOTF-04**: Subscription expiring reminder (3 days before)
 
 ## Future Requirements
 
@@ -101,10 +101,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RECR-04 | Phase 20 | Complete |
 | RECR-05 | Phase 20 | Complete |
 | RECR-06 | Phase 20 | Complete |
-| NOTF-01 | Phase 21 | Pending |
-| NOTF-02 | Phase 21 | Pending |
-| NOTF-03 | Phase 21 | Pending |
-| NOTF-04 | Phase 21 | Pending |
+| NOTF-01 | Phase 21 | Complete |
+| NOTF-02 | Phase 21 | Complete |
+| NOTF-03 | Phase 21 | Complete |
+| NOTF-04 | Phase 21 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 25 total

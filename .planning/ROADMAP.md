@@ -4,7 +4,7 @@
 
 - [x] **v1.0 MVP** - Phases 1-11 (shipped 2026-01-20)
 - [x] **v1.1 SDK & Docs** - Phases 12-16 (shipped 2026-01-21)
-- [ ] **v1.2 Subscription Wallet Overhaul** - Phases 17-21
+- [x] **v1.2 Subscription Wallet Overhaul** - Phases 17-21 (shipped 2026-01-23)
 
 ## Phases
 
@@ -133,8 +133,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 21-01-PLAN.md — Backend notification infrastructure (DB, API, billing integration)
-- [ ] 21-02-PLAN.md — Frontend notification center (bell icon, popover, components)
+- [x] 21-01-PLAN.md — Backend notification infrastructure (DB, API, billing integration)
+- [x] 21-02-PLAN.md — Frontend notification center (bell icon, popover, components)
 
 **Success Criteria:**
 
@@ -153,10 +153,10 @@ Plans:
 | 18 | Multi-Chain Wallet Infrastructure | 4 | Complete |
 | 19 | Chain Preference Logic | 3 | Complete |
 | 20 | Recurring Payment Engine | 6 | Complete |
-| 21 | Notifications & Edge Cases | 4 | Pending |
+| 21 | Notifications & Edge Cases | 4 | Complete |
 
 **Total:** 25 requirements across 5 phases
 
 ---
 *Roadmap created: 2026-01-22*
-*Last updated: 2026-01-22 — Phase 21 planned (2 plans)*
+*Last updated: 2026-01-23 — Phase 21 complete (2 plans), milestone complete*
