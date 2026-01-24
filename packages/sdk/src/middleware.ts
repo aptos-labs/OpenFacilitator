@@ -480,7 +480,10 @@ export function createPaymentMiddleware(config: PaymentMiddlewareConfig) {
       }
 
       // Find matching requirements based on payment network
-      const paymentNetwork = (paymentPayload as { network?: string }).network;
+      // v1 has network at top level, v2 has it in accepted.network
+      const paymentNetwork = paymentPayload.x402Version === 2
+        ? (paymentPayload as { accepted?: { network?: string } }).accepted?.network
+        : (paymentPayload as { network?: string }).network;
       const requirements = requirementsArray.find((r) => r.network === paymentNetwork) || requirementsArray[0];
 
       // Verify payment
@@ -677,7 +680,10 @@ export function honoPaymentMiddleware(config: HonoPaymentConfig) {
     }
 
     // Find matching requirements based on payment network
-    const paymentNetwork = (paymentPayload as { network?: string }).network;
+    // v1 has network at top level, v2 has it in accepted.network
+    const paymentNetwork = paymentPayload.x402Version === 2
+      ? (paymentPayload as { accepted?: { network?: string } }).accepted?.network
+      : (paymentPayload as { network?: string }).network;
     const requirements = requirementsArray.find((r) => r.network === paymentNetwork) || requirementsArray[0];
 
     // Verify payment
