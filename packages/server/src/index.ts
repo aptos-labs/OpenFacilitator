@@ -1,9 +1,12 @@
+console.log('[STARTUP] Server starting...');
 import 'dotenv/config';
 import { createServer } from './server.js';
 import { initializeDatabase } from './db/index.js';
 import { initializeAuth } from './auth/index.js';
 import { initializeBillingCron } from './services/billing-cron.js';
 import { backfillFacilitatorSubscriptions } from './db/facilitators.js';
+
+console.log('[STARTUP] All imports loaded successfully');
 
 const PORT = parseInt(process.env.PORT || '5002', 10);
 const HOST = process.env.HOST || '0.0.0.0';
