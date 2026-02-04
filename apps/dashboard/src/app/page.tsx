@@ -37,7 +37,7 @@ function GetStartedButton({ className }: { className?: string }) {
 }
 
 export default function Home() {
-  const [codeTab, setCodeTab] = useState<'sdk' | 'hono' | 'express'>('express');
+  const [codeTab, setCodeTab] = useState<'sdk' | 'hono' | 'express' | 'claude'>('express');
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -141,7 +141,7 @@ export default function Home() {
                   <div className="w-2.5 h-2.5 rounded-full bg-[#27ca40]"></div>
                 </div>
                 <span className="text-xs text-muted-foreground ml-2">
-                  {codeTab === 'sdk' ? 'example.ts' : codeTab === 'hono' ? 'server.ts' : 'server.ts'}
+                  {codeTab === 'claude' ? '' : codeTab === 'sdk' ? 'example.ts' : 'server.ts'}
                 </span>
               </div>
               <div className="flex gap-1 bg-[#0d1117] rounded-md p-0.5">
@@ -175,9 +175,32 @@ export default function Home() {
                 >
                   Manual
                 </button>
+                <button
+                  onClick={() => setCodeTab('claude')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                    codeTab === 'claude'
+                      ? 'bg-[rgba(212,165,116,0.2)] text-[#e8c9a0]'
+                      : 'text-[#d4a574] hover:bg-[rgba(212,165,116,0.1)] hover:text-[#e8c9a0]'
+                  }`}
+                >
+                  Claude
+                </button>
               </div>
             </div>
-            <pre className="p-4 text-sm overflow-x-auto font-mono leading-relaxed border-0 bg-transparent">
+            {codeTab === 'claude' && (
+              <pre className="p-4 text-sm overflow-x-auto font-mono leading-relaxed border-0 bg-transparent">
+                <code className="text-[#c9d1d9]">
+                  <span className="text-[#8b949e]">{"# Install the OpenFacilitator skill for Claude"}</span>
+                  {"\n"}
+                  <span className="text-[#d4a574]">$</span> npx <span className="text-[#ffa657]">skills</span> add https://github.com/rawgroundbeef/openfacilitator <span className="text-[#79c0ff]">--skill</span> openfacilitator
+                  {"\n\n"}
+                  <span className="text-[#8b949e]">{"# Then just ask Claude:"}</span>
+                  {"\n"}
+                  <span className="text-[#8b949e]">{"# \"Add x402 USDC payments to my Hono server\""}</span>
+                </code>
+              </pre>
+            )}
+            {codeTab !== 'claude' && <pre className="p-4 text-sm overflow-x-auto font-mono leading-relaxed border-0 bg-transparent">
               {codeTab === 'hono' && (
                 <code className="text-[#c9d1d9]">
                   <span className="text-[#ff7b72]">import</span>{" { "}
@@ -246,7 +269,7 @@ export default function Home() {
                   <span className="text-[#ff7b72]">await</span> <span className="text-[#d2a8ff]">reportFailure</span>({"{"} apiKey: process.env.<span className="text-[#79c0ff]">REFUND_API_KEY</span>, ...payment {"}"});
                 </code>
               )}
-            </pre>
+            </pre>}
           </div>
 
           <div className="flex items-center justify-center gap-8 mt-8">
