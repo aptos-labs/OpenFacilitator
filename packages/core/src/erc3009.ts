@@ -372,9 +372,11 @@ export async function executeERC3009Settlement(
     console.log('[ERC3009Settlement] Facilitator wallet:', account.address);
 
     // Create clients
+    // Use shorter polling interval for L2s with fast block times
     const publicClient = createPublicClient({
       chain: config.chain,
       transport: http(config.rpcUrl),
+      pollingInterval: 2_000,
     });
 
     const walletClient = createWalletClient({
@@ -500,11 +502,14 @@ export async function executeERC3009Settlement(
     // TypeScript: hash is definitely assigned if we get here
     hash = hash!;
 
-    // Wait for confirmation
+    // Wait for confirmation with explicit timeout
+    // Base has 2-second blocks, so 120s is generous but avoids false timeouts
+    // under RPC latency or temporary congestion
     console.log('[ERC3009Settlement] Waiting for confirmation...');
     const receipt = await publicClient.waitForTransactionReceipt({
       hash,
       confirmations: 1,
+      timeout: 120_000,
     });
     console.log('[ERC3009Settlement] Receipt received:', {
       status: receipt.status,
@@ -555,7 +560,34 @@ export async function executeERC3009Settlement(
   } catch (error) {
     console.error('[ERC3009Settlement] Error:', error);
     const errMsg = error instanceof Error ? error.message : 'Unknown error during settlement';
-    // Release nonce on error so user can retry with same auth if it wasn't submitted
+
+    // If this was a receipt timeout, the tx WAS broadcast and may still confirm.
+    // Sync the NonceManager with the chain so subsequent requests don't stack
+    // behind an unconfirmed nonce and cascade-timeout.
+    const isReceiptTimeout = errMsg.includes('Timed out while waiting for transaction');
+    if (isReceiptTimeout) {
+      console.warn('[ERC3009Settlement] Receipt timeout — tx was broadcast, syncing nonce manager');
+      try {
+        const account = privateKeyToAccount(facilitatorPrivateKey);
+        const cfg = chainConfigs[chainId];
+        if (cfg) {
+          const pc = createPublicClient({ chain: cfg.chain, transport: http(cfg.rpcUrl) });
+          await nonceManager.resetNonce(chainId, account.address, () =>
+            pc.getTransactionCount({ address: account.address, blockTag: 'pending' })
+          );
+        }
+      } catch (syncErr) {
+        console.error('[ERC3009Settlement] Failed to sync nonce after timeout:', syncErr);
+      }
+      // Don't release the ERC-3009 dedup nonce — the tx may still land on-chain
+      return {
+        success: false,
+        transactionHash: (error as { hash?: Hex }).hash,
+        errorMessage: `Transaction broadcast but confirmation timed out. It may still settle. ${errMsg}`,
+      };
+    }
+
+    // For all other errors the tx was NOT broadcast, safe to release the dedup nonce
     releaseNonce(chainId, authorization.from, authorization.nonce);
     return {
       success: false,
