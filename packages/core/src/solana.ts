@@ -162,13 +162,28 @@ export async function executeSolanaSettlement(
         }
       }
       
+      // Check if the transaction's blockhash is still valid before sending
+      const txBlockhash = message.recentBlockhash;
+      console.log('[SolanaSettlement] Transaction blockhash:', txBlockhash);
+      const isValid = await connection.isBlockhashValid(txBlockhash, { commitment: 'confirmed' });
+      if (!isValid.value) {
+        console.error('[SolanaSettlement] Transaction blockhash is EXPIRED, skipping send');
+        return {
+          success: false,
+          errorMessage: 'Transaction blockhash expired before facilitator could submit. The payer should retry.',
+        };
+      }
+      console.log('[SolanaSettlement] Blockhash is valid, proceeding to send');
+
       // Send the transaction - skip preflight to avoid simulation issues
       try {
-        console.log('[SolanaSettlement] Sending versioned transaction (skipPreflight=true)...');
+        console.log('[SolanaSettlement] Sending versioned transaction (skipPreflight=true, maxRetries=3)...');
         // Always skip preflight for x402 transactions to avoid timing issues
+        // maxRetries tells the RPC to re-forward to subsequent leaders if the first misses it
         signature = await connection.sendTransaction(transaction, {
           skipPreflight: true,
           preflightCommitment: 'confirmed',
+          maxRetries: 3,
         });
         console.log('[SolanaSettlement] Transaction sent! Signature:', signature);
       } catch (e) {
@@ -208,61 +223,85 @@ export async function executeSolanaSettlement(
       });
     }
 
-    // Wait for transaction confirmation before returning success
-    // This ensures downstream consumers can verify the transaction on-chain
+    // Poll for confirmation with a tight loop instead of blocking on confirmTransaction
+    // This avoids the 60-90s blockheight timeout that cascades into upstream HTTP timeouts
     console.log('[SolanaSettlement] Waiting for confirmation...');
-    try {
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      const confirmation = await connection.confirmTransaction(
-        {
-          signature,
-          blockhash,
-          lastValidBlockHeight,
-        },
-        'confirmed'
-      );
+    const maxPollTime = 30_000; // 30 seconds max
+    const pollInterval = 2_000; // Check every 2 seconds
+    const startTime = Date.now();
 
-      if (confirmation.value.err) {
-        console.error('[SolanaSettlement] Transaction failed on-chain:', confirmation.value.err);
-        return {
-          success: false,
-          transactionHash: signature,
-          errorMessage: `Transaction failed: ${JSON.stringify(confirmation.value.err)}`,
-        };
-      }
-
-      console.log('[SolanaSettlement] SUCCESS! Transaction confirmed:', signature);
-      return {
-        success: true,
-        transactionHash: signature,
-      };
-    } catch (confirmError) {
-      // If confirmation times out but tx was sent, still return success
-      // The transaction may still land, just confirmation timed out
-      console.warn('[SolanaSettlement] Confirmation timeout, but tx was sent:', signature);
-      console.warn('[SolanaSettlement] Error:', confirmError);
-
-      // Check if the transaction landed anyway
+    while (Date.now() - startTime < maxPollTime) {
       try {
         const status = await connection.getSignatureStatus(signature);
-        if (status.value?.confirmationStatus === 'confirmed' || status.value?.confirmationStatus === 'finalized') {
-          console.log('[SolanaSettlement] Transaction confirmed on retry check:', signature);
-          return {
-            success: true,
-            transactionHash: signature,
-          };
+
+        if (status.value !== null) {
+          // Transaction found on-chain
+          if (status.value.err) {
+            console.error('[SolanaSettlement] Transaction failed on-chain:', status.value.err);
+            return {
+              success: false,
+              transactionHash: signature,
+              errorMessage: `Transaction failed: ${JSON.stringify(status.value.err)}`,
+            };
+          }
+
+          if (status.value.confirmationStatus === 'confirmed' || status.value.confirmationStatus === 'finalized') {
+            console.log('[SolanaSettlement] SUCCESS! Transaction confirmed:', signature, 'status:', status.value.confirmationStatus);
+            return {
+              success: true,
+              transactionHash: signature,
+            };
+          }
+
+          console.log('[SolanaSettlement] Transaction status:', status.value.confirmationStatus, '- waiting...');
         }
-      } catch {
-        // Ignore status check errors
+      } catch (pollError) {
+        console.warn('[SolanaSettlement] Status poll error (will retry):', pollError instanceof Error ? pollError.message : pollError);
       }
 
-      // Return the error - transaction may or may not have landed
-      return {
-        success: false,
-        transactionHash: signature,
-        errorMessage: `Transaction sent but confirmation failed: ${confirmError instanceof Error ? confirmError.message : 'Timeout'}`,
-      };
+      // Check if the blockhash is still valid — if not, the tx will never land
+      try {
+        const txBlockhash = (transaction instanceof VersionedTransaction)
+          ? transaction.message.recentBlockhash
+          : transaction.recentBlockhash;
+        if (txBlockhash) {
+          const stillValid = await connection.isBlockhashValid(txBlockhash, { commitment: 'confirmed' });
+          if (!stillValid.value) {
+            console.warn('[SolanaSettlement] Blockhash expired during confirmation wait. Transaction will not land.');
+            return {
+              success: false,
+              transactionHash: signature,
+              errorMessage: 'Transaction blockhash expired before confirmation. The payer should retry.',
+            };
+          }
+        }
+      } catch {
+        // Ignore blockhash check errors, continue polling
+      }
+
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
+
+    // Final check after timeout
+    try {
+      const finalStatus = await connection.getSignatureStatus(signature);
+      if (finalStatus.value?.confirmationStatus === 'confirmed' || finalStatus.value?.confirmationStatus === 'finalized') {
+        console.log('[SolanaSettlement] Transaction confirmed on final check:', signature);
+        return {
+          success: true,
+          transactionHash: signature,
+        };
+      }
+    } catch {
+      // Ignore final check errors
+    }
+
+    console.warn('[SolanaSettlement] Confirmation timeout after 30s, tx was sent:', signature);
+    return {
+      success: false,
+      transactionHash: signature,
+      errorMessage: 'Transaction sent but not confirmed within 30s. It may still land — check the signature on-chain.',
+    };
   } catch (error) {
     console.error('[SolanaSettlement] ERROR:', error);
     
