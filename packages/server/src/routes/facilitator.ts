@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
-import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2, isStacksNetwork } from '@openfacilitator/core';
+import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2, isStacksNetwork, isAptosNetwork } from '@openfacilitator/core';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { requireFacilitator } from '../middleware/tenant.js';
@@ -506,10 +506,14 @@ router.post('/settle', requireFacilitator, async (req: Request, res: Response) =
     // Determine which private key to use based on network (supports both v1 and CAIP-2 formats)
     const isSolana = isSolanaNetwork(paymentRequirements.network);
     const isStacks = isStacksNetwork(paymentRequirements.network);
+    const isAptos = isAptosNetwork(paymentRequirements.network);
 
     let privateKey: string | undefined;
 
-    if (isSolana) {
+    if (isAptos) {
+      // Aptos needs no private key — facilitator just relays the pre-signed transaction
+      privateKey = undefined;
+    } else if (isSolana) {
       // Use Solana wallet for Solana networks
       if (record.encrypted_solana_private_key) {
         try {

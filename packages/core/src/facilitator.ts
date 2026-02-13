@@ -20,10 +20,11 @@ import {
   type X402PaymentPayload,
   type ChainId,
 } from './types.js';
-import { getChainIdFromNetwork, getNetworkFromChainId, getCaip2FromNetwork, defaultChains, isStacksChain } from './chains.js';
+import { getChainIdFromNetwork, getNetworkFromChainId, getCaip2FromNetwork, defaultChains, isStacksChain, isAptosChain } from './chains.js';
 import { executeERC3009Settlement } from './erc3009.js';
 import { executeSolanaSettlement } from './solana.js';
 import { executeStacksSettlement } from './stacks.js';
+import { executeAptosSettlement } from './aptos.js';
 
 /**
  * Custom chain definitions for chains not in viem
@@ -166,6 +167,7 @@ export class Facilitator {
 
       const caip2Network = getCaip2FromNetwork(network);
       const isSolana = chainId === 'solana' || chainId === 'solana-devnet';
+      const isAptos = isAptosChain(chainId);
 
       // v1 format - human-readable network name
       const v1Kind: SupportedKind = {
@@ -174,7 +176,7 @@ export class Facilitator {
         network,
       };
 
-      // Add feePayer extra for Solana only (Stacks has no fee-payer model)
+      // Add feePayer extra for Solana only (Stacks and Aptos have no fee-payer model)
       if (isSolana) {
         v1Kind.extra = { feePayer: this.config.ownerAddress };
       }
@@ -267,6 +269,21 @@ export class Facilitator {
         return {
           isValid: true,
           payer: 'stacks-payer', // Payer is embedded in the transaction
+        };
+      }
+
+      // Handle Aptos verification
+      if (isAptosChain(chainId)) {
+        const aptosPayload = payload.payload || payload;
+        if (!aptosPayload.transaction) {
+          return {
+            isValid: false,
+            invalidReason: 'Missing transaction in Aptos payment payload',
+          };
+        }
+        return {
+          isValid: true,
+          payer: 'aptos-payer', // Payer is embedded in the transaction
         };
       }
 
@@ -371,6 +388,38 @@ export class Facilitator {
           payer: verification.payer || '',
           network: requirements.network,
           errorReason: `Unsupported network: ${requirements.network}`,
+        };
+      }
+
+      // Aptos doesn't need a private key — handle before the key check
+      if (isAptosChain(chainId)) {
+        const aptosPayload = payload.payload || payload;
+        const signedTransaction = aptosPayload.transaction;
+
+        if (!signedTransaction) {
+          return {
+            success: false,
+            transaction: '',
+            payer: verification.payer || 'aptos-payer',
+            network: requirements.network,
+            errorReason: 'Missing transaction in Aptos payment payload',
+          };
+        }
+
+        const result = await executeAptosSettlement({
+          network: chainId as string,
+          signedTransaction,
+          expectedRecipient: requirements.payTo,
+          expectedAmount: getRequiredAmount(requirements),
+          expectedAsset: requirements.asset,
+        });
+
+        return {
+          success: result.success,
+          transaction: result.transactionHash || '',
+          payer: result.payer || verification.payer || 'aptos-payer',
+          network: requirements.network,
+          errorReason: result.errorMessage,
         };
       }
 

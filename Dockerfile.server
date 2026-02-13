@@ -1,6 +1,8 @@
 # Build stage
 FROM node:20-alpine AS builder
 
+RUN apk add --no-cache python3 make g++
+
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 
 WORKDIR /app
@@ -28,9 +30,6 @@ FROM node:20-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 
-# Install wget for healthcheck
-RUN apk add --no-cache wget
-
 WORKDIR /app
 
 # Copy built files and node_modules from builder (includes compiled native modules)
@@ -46,13 +45,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN mkdir -p /data && chmod 755 /data
 
 ENV NODE_ENV=production
-ENV PORT=3001
 ENV HOST=0.0.0.0
 ENV DATABASE_PATH=/data/openfacilitator.db
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
 EXPOSE 3001
 

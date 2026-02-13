@@ -24,6 +24,10 @@ export const NETWORKS: NetworkInfo[] = [
   // Stacks
   { v1Id: 'stacks', v2Id: 'stacks:1', name: 'Stacks', type: 'stacks', testnet: false },
   { v1Id: 'stacks-testnet', v2Id: 'stacks:2147483648', name: 'Stacks Testnet', type: 'stacks', testnet: true },
+
+  // Aptos
+  { v1Id: 'aptos', v2Id: 'aptos:1', name: 'Aptos', type: 'aptos', testnet: false },
+  { v1Id: 'aptos-testnet', v2Id: 'aptos:2', name: 'Aptos Testnet', type: 'aptos', testnet: true },
 ];
 
 /**
@@ -44,6 +48,7 @@ export function getNetworkType(id: string): NetworkType | undefined {
   if (id.startsWith('eip155:')) return 'evm';
   if (id.startsWith('solana:')) return 'solana';
   if (id.startsWith('stacks:')) return 'stacks';
+  if (id.startsWith('aptos:')) return 'aptos';
 
   return undefined;
 }

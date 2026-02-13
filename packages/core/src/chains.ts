@@ -97,6 +97,15 @@ export const defaultChains: Record<string, ChainConfig> = {
     blockExplorerUrl: 'https://explorer.hiro.so',
     isEVM: false,
   },
+  // Aptos Mainnet
+  aptos: {
+    chainId: 'aptos',
+    name: 'Aptos',
+    network: 'aptos',
+    rpcUrl: process.env.APTOS_RPC_URL || 'https://fullnode.mainnet.aptoslabs.com/v1',
+    blockExplorerUrl: 'https://explorer.aptoslabs.com',
+    isEVM: false,
+  },
 
   // ===== TESTNETS =====
   
@@ -172,6 +181,15 @@ export const defaultChains: Record<string, ChainConfig> = {
     blockExplorerUrl: 'https://explorer.hiro.so/?chain=testnet',
     isEVM: false,
   },
+  // Aptos Testnet
+  'aptos-testnet': {
+    chainId: 'aptos-testnet',
+    name: 'Aptos Testnet',
+    network: 'aptos-testnet',
+    rpcUrl: process.env.APTOS_TESTNET_RPC_URL || 'https://fullnode.testnet.aptoslabs.com/v1',
+    blockExplorerUrl: 'https://explorer.aptoslabs.com/?network=testnet',
+    isEVM: false,
+  },
 };
 
 /**
@@ -212,6 +230,7 @@ export const networkToChainId: Record<string, number | string> = {
   solana: 'solana',
   'solana-mainnet': 'solana', // Alias for compatibility
   stacks: 'stacks',
+  aptos: 'aptos',
   // Testnets
   'avalanche-fuji': 43113,
   'base-sepolia': 84532,
@@ -221,6 +240,7 @@ export const networkToChainId: Record<string, number | string> = {
   'xlayer-testnet': 195,
   'solana-devnet': 'solana-devnet',
   'stacks-testnet': 'stacks-testnet',
+  'aptos-testnet': 'aptos-testnet',
 };
 
 /**
@@ -239,6 +259,7 @@ export const chainIdToNetwork: Record<string | number, string> = {
   solana: 'solana',
   'solana-mainnet': 'solana', // Alias
   stacks: 'stacks',
+  aptos: 'aptos',
   // Testnets
   43113: 'avalanche-fuji',
   84532: 'base-sepolia',
@@ -248,6 +269,7 @@ export const chainIdToNetwork: Record<string | number, string> = {
   195: 'xlayer-testnet',
   'solana-devnet': 'solana-devnet',
   'stacks-testnet': 'stacks-testnet',
+  'aptos-testnet': 'aptos-testnet',
 };
 
 /**
@@ -290,6 +312,17 @@ export function getChainIdFromNetwork(network: string): number | string | undefi
     }
   }
 
+  // Try Aptos CAIP-2 format
+  if (network.startsWith('aptos:')) {
+    const chainRef = network.slice(6); // Remove 'aptos:' prefix
+    if (chainRef === aptosChainRefs.mainnet) {
+      return 'aptos';
+    }
+    if (chainRef === aptosChainRefs.testnet) {
+      return 'aptos-testnet';
+    }
+  }
+
   return undefined;
 }
 
@@ -314,6 +347,7 @@ export const productionChains = [
   196,   // XLayer
   'solana',
   'stacks',
+  'aptos',
 ] as const;
 
 /**
@@ -328,6 +362,7 @@ export const testChains = [
   195,      // XLayer Testnet
   'solana-devnet',
   'stacks-testnet',
+  'aptos-testnet',
 ] as const;
 
 // ===== CAIP-2 Network Identifiers =====
@@ -353,6 +388,16 @@ export const stacksChainRefs = {
 } as const;
 
 /**
+ * Aptos chain references for CAIP-2
+ * CAIP-2 format: aptos:{chainId}
+ * Mainnet = 1, Testnet = 2
+ */
+export const aptosChainRefs = {
+  mainnet: '1',
+  testnet: '2',
+} as const;
+
+/**
  * Network name to CAIP-2 identifier mapping
  */
 export const networkToCaip2: Record<string, string> = {
@@ -369,6 +414,8 @@ export const networkToCaip2: Record<string, string> = {
   solana: `solana:${solanaGenesisHashes.mainnet}`,
   // Stacks
   stacks: `stacks:${stacksChainRefs.mainnet}`,
+  // Aptos
+  aptos: `aptos:${aptosChainRefs.mainnet}`,
   // EVM Testnets
   'avalanche-fuji': 'eip155:43113',
   'base-sepolia': 'eip155:84532',
@@ -378,6 +425,7 @@ export const networkToCaip2: Record<string, string> = {
   'xlayer-testnet': 'eip155:195',
   'solana-devnet': `solana:${solanaGenesisHashes.devnet}`,
   'stacks-testnet': `stacks:${stacksChainRefs.testnet}`,
+  'aptos-testnet': `aptos:${aptosChainRefs.testnet}`,
 };
 
 /**
@@ -397,6 +445,8 @@ export const caip2ToNetwork: Record<string, string> = {
   [`solana:${solanaGenesisHashes.mainnet}`]: 'solana',
   // Stacks
   [`stacks:${stacksChainRefs.mainnet}`]: 'stacks',
+  // Aptos
+  [`aptos:${aptosChainRefs.mainnet}`]: 'aptos',
   // EVM Testnets
   'eip155:43113': 'avalanche-fuji',
   'eip155:84532': 'base-sepolia',
@@ -406,6 +456,7 @@ export const caip2ToNetwork: Record<string, string> = {
   'eip155:195': 'xlayer-testnet',
   [`solana:${solanaGenesisHashes.devnet}`]: 'solana-devnet',
   [`stacks:${stacksChainRefs.testnet}`]: 'stacks-testnet',
+  [`aptos:${aptosChainRefs.testnet}`]: 'aptos-testnet',
 };
 
 /**
@@ -430,7 +481,8 @@ export function getCaip2Namespace(network: string): string {
   if (!config) return 'eip155:*';
   if (config.isEVM) return 'eip155:*';
   if (isStacksChain(config.chainId)) return 'stacks:*';
-  // Non-EVM, non-Stacks assumed Solana
+  if (isAptosChain(config.chainId)) return 'aptos:*';
+  // Non-EVM, non-Stacks, non-Aptos assumed Solana
   return 'solana:*';
 }
 
@@ -438,7 +490,7 @@ export function getCaip2Namespace(network: string): string {
  * Check if a network identifier is CAIP-2 format
  */
 export function isCaip2Format(identifier: string): boolean {
-  return identifier.includes(':') && (identifier.startsWith('eip155:') || identifier.startsWith('solana:') || identifier.startsWith('stacks:'));
+  return identifier.includes(':') && (identifier.startsWith('eip155:') || identifier.startsWith('solana:') || identifier.startsWith('stacks:') || identifier.startsWith('aptos:'));
 }
 
 /**
@@ -454,4 +506,19 @@ export function isStacksChain(chainId: ChainId): boolean {
 export function isStacksNetwork(network: string): boolean {
   const lower = network.toLowerCase();
   return lower === 'stacks' || lower === 'stacks-testnet' || lower.startsWith('stacks:');
+}
+
+/**
+ * Check if a chain ID belongs to an Aptos chain
+ */
+export function isAptosChain(chainId: ChainId): boolean {
+  return chainId === 'aptos' || chainId === 'aptos-testnet';
+}
+
+/**
+ * Check if a network identifier refers to Aptos
+ */
+export function isAptosNetwork(network: string): boolean {
+  const lower = network.toLowerCase();
+  return lower === 'aptos' || lower === 'aptos-testnet' || lower.startsWith('aptos:');
 }

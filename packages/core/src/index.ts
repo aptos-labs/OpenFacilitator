@@ -5,6 +5,7 @@ export * from './tokens.js';
 export * from './erc3009.js';
 export * from './solana.js';
 export * from './stacks.js';
+export * from './aptos.js';
 
 // Re-export multi-settle specific types for convenience
 export type {

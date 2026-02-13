@@ -12,6 +12,8 @@ export const knownTokens: Record<string, Record<ChainId, string>> = {
     11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia
     solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Solana Mainnet
     'solana-devnet': '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // Solana Devnet
+    aptos: '0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b', // Aptos Mainnet
+    'aptos-testnet': '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832', // Aptos Testnet
   },
   // WETH addresses (EVM only)
   WETH: {
@@ -80,6 +82,13 @@ export const defaultTokens: TokenConfig[] = [
     decimals: 6,
     chainId: 'stacks',
   },
+  // USDC on Aptos Mainnet
+  {
+    address: knownTokens.USDC['aptos'],
+    symbol: 'USDC',
+    decimals: 6,
+    chainId: 'aptos',
+  },
 ];
 
 /**
@@ -120,6 +129,13 @@ export const testTokens: TokenConfig[] = [
     symbol: 'USDCx',
     decimals: 6,
     chainId: 'stacks-testnet',
+  },
+  // USDC on Aptos Testnet
+  {
+    address: knownTokens.USDC['aptos-testnet'],
+    symbol: 'USDC',
+    decimals: 6,
+    chainId: 'aptos-testnet',
   },
 ];
 

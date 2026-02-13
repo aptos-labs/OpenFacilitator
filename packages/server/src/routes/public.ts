@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type IRouter } from 'express';
-import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2, isStacksNetwork } from '@openfacilitator/core';
+import { createFacilitator, type FacilitatorConfig, type TokenConfig, getSolanaPublicKey, networkToCaip2, isStacksNetwork, isAptosNetwork } from '@openfacilitator/core';
 import { OpenFacilitator, createPaymentMiddleware, type PaymentPayload, type PaymentRequirements } from '@openfacilitator/sdk';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -73,10 +73,9 @@ function getFreeFacilitatorConfig(): { config: FacilitatorConfig; evmPrivateKey?
   let evmAddress = process.env.FREE_FACILITATOR_EVM_ADDRESS;
   const solanaAddress = process.env.FREE_FACILITATOR_SOLANA_ADDRESS;
 
-  // At minimum we need one wallet configured
-  if (!evmPrivateKey && !solanaPrivateKey && !stacksPrivateKey) {
-    return null;
-  }
+  // Aptos requires no private key, so we always have at least one chain available.
+  // Keep null check only if we want to require explicit opt-in via at least one key.
+  // For now, always proceed since Aptos is unconditionally supported.
 
   // Derive EVM address from private key if not explicitly set
   if (evmPrivateKey && !evmAddress) {
@@ -124,6 +123,22 @@ function getFreeFacilitatorConfig(): { config: FacilitatorConfig; evmPrivateKey?
       chainId: 'stacks',
     });
   }
+
+  // Add Aptos unconditionally (no private key needed — relay only)
+  supportedChains.push('aptos');
+  supportedTokens.push({
+    symbol: 'USDC',
+    address: '0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b',
+    decimals: 6,
+    chainId: 'aptos',
+  });
+  supportedChains.push('aptos-testnet');
+  supportedTokens.push({
+    symbol: 'USDC',
+    address: '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832',
+    decimals: 6,
+    chainId: 'aptos-testnet',
+  });
 
   const config: FacilitatorConfig = {
     id: 'free-facilitator',
@@ -322,10 +337,14 @@ router.post('/free/settle', async (req: Request, res: Response) => {
     // Determine which private key to use based on network (supports both v1 and CAIP-2 formats)
     const isSolana = isSolanaNetwork(paymentRequirements.network);
     const isStacks = isStacksNetwork(paymentRequirements.network);
+    const isAptos = isAptosNetwork(paymentRequirements.network);
 
     let privateKey: string | undefined;
 
-    if (isSolana) {
+    if (isAptos) {
+      // Aptos needs no private key — facilitator just relays the pre-signed transaction
+      privateKey = undefined;
+    } else if (isSolana) {
       if (!facilitatorData.solanaPrivateKey) {
         res.status(503).json({
           success: false,
@@ -438,6 +457,9 @@ router.get('/free/info', (_req: Request, res: Response) => {
         available: true,
         feePayerAddress: solanaAddress,
       } : { available: false },
+      aptos: {
+        available: true,
+      },
     },
     limits: {
       note: 'Fair use policy applies. For high-volume usage, please self-host or get a managed instance.',
