@@ -415,8 +415,11 @@ router.post('/free/settle', async (req: Request, res: Response) => {
 router.get('/free/info', (_req: Request, res: Response) => {
   const facilitatorData = getFreeFacilitatorConfig();
   
-  const evmAddress = process.env.FREE_FACILITATOR_EVM_ADDRESS;
-  const solanaAddress = process.env.FREE_FACILITATOR_SOLANA_ADDRESS;
+  const evmAddress = facilitatorData?.evmAddress || process.env.FREE_FACILITATOR_EVM_ADDRESS;
+  // Always derive Solana address from the private key to prevent env var mismatch
+  const solanaAddress = facilitatorData?.solanaPrivateKey
+    ? getSolanaPublicKey(facilitatorData.solanaPrivateKey)
+    : process.env.FREE_FACILITATOR_SOLANA_ADDRESS;
 
   res.json({
     name: 'OpenFacilitator Free',
