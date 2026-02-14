@@ -35,7 +35,7 @@ jobs:
 
       - name: Build and push image
         run: |
-          IMAGE="${{ vars.GCP_DOCKER_ARTIFACT_REPO }}/server:${GIT_SHA}"
+          IMAGE="${{ vars.GCP_DOCKER_ARTIFACT_REPO }}/openfacilitator-server:${GIT_SHA}"
           docker build -f Dockerfile.server -t "$IMAGE" .
           docker push "$IMAGE"
 
@@ -51,5 +51,5 @@ jobs:
       - uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ vars.CLOUD_RUN_SERVICE_NAME }}
-          image: ${{ vars.GCP_DOCKER_ARTIFACT_REPO }}/server:${{ github.sha }}
+          image: ${{ vars.GCP_DOCKER_ARTIFACT_REPO }}/openfacilitator-server:${{ github.sha }}
           region: ${{ vars.CLOUD_RUN_REGION }}
